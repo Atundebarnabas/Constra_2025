@@ -3,4 +3,5 @@ ta
 pandas
 numpy
 schedule
+pymysql
 python-dotenv
