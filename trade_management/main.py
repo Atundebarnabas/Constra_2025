@@ -12,9 +12,9 @@ import traceback
 from dotenv import load_dotenv
 load_dotenv()
 
-
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'db_config')))
-from db_config import Database
+# Append the *parent* directory (main), not the db_config folder itself
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+from db_config.db_config import Database
 
 #--- 
 # GET SERIOUS ABOUT LIFE
