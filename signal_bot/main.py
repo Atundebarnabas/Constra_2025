@@ -19,7 +19,7 @@ from db_config import Database
 
 # GLOBAL VARIABLE
 timeframe = '1h'
-limit = 10
+limit = 50
 
 print_lock = threading.Lock()
 
@@ -219,7 +219,7 @@ def timeframe_to_seconds(timeframe: str) -> int:
         # Default fallback 1 hour
         return 3600
 
-def get_ohlcv_cached(exchange, symbol, timeframe='1h', limit=10):
+def get_ohlcv_cached(exchange, symbol, timeframe='1h', limit=50):
     now = time.time()
     expire_seconds = timeframe_to_seconds(timeframe)
 
