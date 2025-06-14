@@ -17,19 +17,16 @@ from db_config import Database
 # PERSONAL DEVELOPMENT - GETTING TO BECOME THE KIND OF PERSON YOU WANT TO BE
 # GET SMART (KNOWLEDGE, READ THE BOOKS, GET IDEA, WORK ON THEM)
 
-# Replace with your actual API credentials
-# api_key = '0aa48da8-f938-4791-aea3-39cb4c3022dc'
-# secret = 'duoPVJrrxzPDX3BEVwaqI1tHPyVhy8W0pb04lKvJIQZmMWZjZWI3MC0wNWQyLTQxYzItOGRlNi02OTQwNzcyZDE1YTc'
 
 UPDATE_API_URL = "https://medictreats.com/constra_api/update-trade.php"
-TOKEN = "constra2025X9bL7kDq8mNpTz3VwAeU61"
+TOKEN = os.getenv('EXTERNAL_API_TOKEN')
 
 db_conn = Database(
-    host='switchyard.proxy.rlwy.net',
-    user='root',
-    password='zBqnbecmCUHFBgszWaOHGUErsPxsHSrq',
-    database='railway',
-    port=34428
+    host= os.getenv('DB_HOST'),
+    user= os.getenv('DB_USER'),
+    password= os.getenv('DB_PASSWORD'),
+    database= os.getenv('DB_DATABASE'),
+    port= os.getenv('DB_PORT')
 )
 
 
