@@ -1,5 +1,6 @@
 import threading
 import time
+import os
 import traceback
 import math
 import json
@@ -10,11 +11,12 @@ import pandas as pd
 import ta
 
 from db_config import Database
+from dotenv import load_dotenv
 
+load_dotenv()
 
-# Replace with your actual API credentials
-# api_key = '0aa48da8-f938-4791-aea3-39cb4c3022dc'
-# secret = 'duoPVJrrxzPDX3BEVwaqI1tHPyVhy8W0pb04lKvJIQZmMWZjZWI3MC0wNWQyLTQxYzItOGRlNi02OTQwNzcyZDE1YTc'
+api_key = os.getenv('API_KEY')
+secret = os.getenv('SECRET')
 
 # GLOBAL VARIABLE
 timeframe = '1h'
@@ -43,11 +45,11 @@ def round_to_sig_figs(num, sig_figs):
 #|||||||||||||||||||||||||||||#
     
 db_conn = Database(
-    host='switchyard.proxy.rlwy.net',
-    user='root',
-    password='zBqnbecmCUHFBgszWaOHGUErsPxsHSrq',
-    database='railway',
-    port=34428
+    host= os.getenv('DB_HOST'),
+    user= os.getenv('DB_USER'),
+    password= os.getenv('DB_PASSWORD'),
+    database= os.getenv('DB_DATABASE'),
+    port= os.getenv('DB_PORT')
 )
 
 
