@@ -1,5 +1,6 @@
 
 import os
+import sys
 import time
 import requests
 import threading
@@ -11,6 +12,8 @@ import traceback
 from dotenv import load_dotenv
 load_dotenv()
 
+
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'db_config')))
 from db_config import Database
 
 #--- 
