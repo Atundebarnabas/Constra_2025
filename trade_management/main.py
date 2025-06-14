@@ -8,6 +8,9 @@ import ccxt
 import schedule
 import traceback
 
+from dotenv import load_dotenv
+load_dotenv()
+
 from db_config import Database
 
 #--- 
