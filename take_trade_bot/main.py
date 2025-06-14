@@ -31,7 +31,7 @@ db_conn = Database(
     user= os.getenv('DB_USER'),
     password= os.getenv('DB_PASSWORD'),
     database= os.getenv('DB_DATABASE'),
-    port= os.getenv('DB_PORT')
+    port= int(os.getenv('DB_PORT'))
 )
 
 def ensure_user_cred_table_exists():
