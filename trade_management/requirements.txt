@@ -1,4 +1,5 @@
 ccxt
+pymysql
 schedule
 python-dotenv
 pandas
