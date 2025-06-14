@@ -1,22 +1,17 @@
-import ccxt
-import pandas as pd
-import ta
+import os
 import requests
 import threading
 import time
 import math
 import json
+import ccxt
+import pandas as pd
 import schedule
 import traceback
+from dotenv import load_dotenv
+load_dotenv()
 
 from db_config import Database
-
-
-# Replace with your actual API credentials
-# api_key = '0aa48da8-f938-4791-aea3-39cb4c3022dc'
-# secret = 'duoPVJrrxzPDX3BEVwaqI1tHPyVhy8W0pb04lKvJIQZmMWZjZWI3MC0wNWQyLTQxYzItOGRlNi02OTQwNzcyZDE1YTc'
-# c895dd8c-1cc1-4e88-86a2-b6e856c274ba
-# qO73E8E6SsLlQ4TDgjhGpe-h7KWZYYhdNHl-bYLW0woyOTNiNWFlYi1lYmJmLTRmOWEtYTIxOS1hY2RkMjk3YzM5MjI
 
 print_lock = threading.Lock()
 
@@ -587,7 +582,7 @@ def run_all():
             exchange = create_exchange(exchange_name, row['api_key'], row['secret'], password)
             
             # token = generate_mixed_token(exchange_name, row['secret'], length=30)
-            token = "constra2025X9bL7kDq8mNpTz3VwAeU61"
+            token = os.getenv('EXTERNAL_API_TOKEN')
             exchange_list.append((exchange, row['cred_id'], token, verify))
         except Exception as e:
             print(row)
