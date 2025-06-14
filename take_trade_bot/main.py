@@ -29,11 +29,11 @@ API_URL = "https://medictreats.com/constra_api/save-trade.php"
 #|||||||||||||||||||||||||||||#
     
 db_conn = Database(
-    host='switchyard.proxy.rlwy.net',
-    user='root',
-    password='zBqnbecmCUHFBgszWaOHGUErsPxsHSrq',
-    database='railway',
-    port=34428
+    host= os.getenv('DB_HOST'),
+    user= os.getenv('DB_USER'),
+    password= os.getenv('DB_PASSWORD'),
+    database= os.getenv('DB_DATABASE'),
+    port= os.getenv('DB_PORT')
 )
 
 def ensure_user_cred_table_exists():
