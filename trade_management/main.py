@@ -1,12 +1,10 @@
-import ccxt
+
 import os
 import time
 import requests
 import threading
-import queue
-import ujson as json
-from filelock import FileLock
 import math
+import ccxt
 import schedule
 import traceback
 
