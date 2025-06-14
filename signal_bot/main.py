@@ -44,9 +44,8 @@ def round_to_sig_figs(num, sig_figs):
 #   DATABASE CONFIGURATION    #
 #|||||||||||||||||||||||||||||#
 
-print(f"DB_HOST: {os.getenv('DB_HOST')}, DB_USER: {os.getenv('DB_USER')}, DB_PASSWORD: {os.getenv('DB_PASSWORD')}")
+print(f"DB_HOST: {os.getenv('DB_HOST')}, DB_USER: {os.getenv('DB_USER')}, DB_PASSWORD: {os.getenv('DB_PASSWORD')}, DB_DATABASE: {os.getenv('DB_DATABASE')}")
 
-DB_DATABASE: {os.getenv('DB_DATABASE')}")
 db_conn = Database(
     host= os.getenv('DB_HOST'),
     user= os.getenv('DB_USER'),
