@@ -1,0 +1,6 @@
+ccxt
+ta
+pandas
+numpy
+schedule
+python-dotenv
