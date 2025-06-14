@@ -189,7 +189,7 @@ def load_markets_once_per_hour(exchange):
             markets = exchange.load_markets()
             filtered_symbols = [
                 symbol for symbol, market in markets.items()
-                if ":USDT" in symbol and market.get('info', {}).get('type') == "PerpetualV2"
+                if ":USDT" in symbol and market.get('active', True) and market.get('info', {}).get('type') == "PerpetualV2"
             ]
 
             with market_cache_lock:
