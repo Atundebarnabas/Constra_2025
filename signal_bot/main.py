@@ -10,13 +10,10 @@ import ccxt
 import pandas as pd
 import ta
 
-from db_config import Database
 from dotenv import load_dotenv
-
 load_dotenv()
 
-api_key = os.getenv('API_KEY')
-secret = os.getenv('SECRET')
+from db_config import Database
 
 # GLOBAL VARIABLE
 timeframe = '1h'
