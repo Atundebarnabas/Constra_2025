@@ -19,7 +19,7 @@ class Database:
                 charset='utf8mb4',
                 cursorclass=pymysql.cursors.DictCursor
             )
-        except pymysql.MySQLError as e:
+        except Exception as e:
             print(f"❌ Error getting new DB connection: {e}")
             return None
 
