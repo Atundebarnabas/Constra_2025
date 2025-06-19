@@ -17,12 +17,22 @@ load_dotenv()
 # Append the *parent* directory (main), not the db_config folder itself
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from db_config.db_config import Database
+print_lock = threading.Lock()
+#|||||||||||||||||||||||||||||#
+#   DATABASE CONFIGURATION    #
+#|||||||||||||||||||||||||||||#
+
+db_conn = Database(
+    host= os.getenv('DB_HOST'),
+    user= os.getenv('DB_USER'),
+    password= os.getenv('DB_PASSWORD'),
+    database= os.getenv('DB_DATABASE'),
+    port= int(os.getenv('DB_PORT'))
+)
 
 # GLOBAL VARIABLE
 timeframe = '1h'
-limit = 50
-
-print_lock = threading.Lock()
+limit = 10
 
 def thread_safe_print(*args, **kwargs):
     with print_lock:
@@ -39,18 +49,6 @@ def round_to_sig_figs(num, sig_figs):
     if num == 0:
         return 0
     return round(num, sig_figs - int(math.floor(math.log10(abs(num)))) - 1)
-
-#|||||||||||||||||||||||||||||#
-#   DATABASE CONFIGURATION    #
-#|||||||||||||||||||||||||||||#
-
-db_conn = Database(
-    host= os.getenv('DB_HOST'),
-    user= os.getenv('DB_USER'),
-    password= os.getenv('DB_PASSWORD'),
-    database= os.getenv('DB_DATABASE'),
-    port= int(os.getenv('DB_PORT'))
-)
 
 
 def ensure_exchanges_table_exists():
@@ -220,7 +218,7 @@ def timeframe_to_seconds(timeframe: str) -> int:
         # Default fallback 1 hour
         return 3600
 
-def get_ohlcv_cached(exchange, symbol, timeframe='1h', limit=50):
+def get_ohlcv_cached(exchange, symbol, timeframe='1h', limit=10):
     now = time.time()
     expire_seconds = timeframe_to_seconds(timeframe)
 
@@ -291,8 +289,27 @@ def check_trade_signal(exchange, symbol, ohlcv):
     }
 
 # ---------- MAIN JOB AND SCHEDULER -----------
+last_run_time = {}
+cooldown_announced = {}
+def main_job(exchange, exchange_db_id, timeframe='1h', cooldown_seconds=1800):
 
-def main_job(exchange, exchange_db_id, timeframe='1h'):
+    global last_run_time, cooldown_announced
+
+    now = time.time()
+    last_run = last_run_time.get(exchange.id, 0)
+
+    if now - last_run < cooldown_seconds:
+        if not cooldown_announced.get(exchange.id, False):
+            wait_time = int((last_run + cooldown_seconds) - now)
+            thread_safe_print(f"⏳ Cooldown active for {exchange.id}. Next run in {wait_time}s.")
+            cooldown_announced[exchange.id] = True  # Mark as announced
+        return
+
+    # Reset announcement flag
+    cooldown_announced[exchange.id] = False
+    last_run_time[exchange.id] = now  # Update timestamp
+
+    # ---- Your job logic starts here ----
     markets, all_symbols = load_markets_once_per_hour(exchange)
     if not markets or not all_symbols:
         thread_safe_print(f"⚠️ No markets or symbols data for {exchange.id}, skipping.")
@@ -365,7 +382,7 @@ def main_job(exchange, exchange_db_id, timeframe='1h'):
 
 
 def run_exchange_scheduler(exchange, exchange_db_id, timeframe=timeframe):
-    schedule.every(4).seconds.do(main_job, exchange=exchange, exchange_db_id=exchange_db_id, timeframe=timeframe)
+    main_job(exchange=exchange, exchange_db_id=exchange_db_id, timeframe=timeframe, cooldown_seconds=3600//2)
     while not stop_event.is_set():
         try:
             schedule.run_pending()
