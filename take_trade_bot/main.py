@@ -514,7 +514,7 @@ def main_job(exchange, user_cred_id, token, verify):
         if (side == 0 and position_count >= MAX_NO_BUY_TRADE):
             print(f"❌ Max number of buy trades reached ({position_count})!")
         elif (side == 1 and position_count >= MAX_NO_SELL_TRADE):
-            print(f"❌ Max number of sell trades reached ({position_count})!")
+            print(f"❌ Max number of sell trades reached ({MAX_NO_SELL_TRADE})!")
         else:
             if has_open_trade(user_cred_id, symbol):
                 print(f"Trade {symbol} already taken for {user_cred_id}")
