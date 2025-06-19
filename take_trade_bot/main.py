@@ -489,9 +489,6 @@ stop_event = threading.Event()  # Global stop signal
 def main_job(exchange, user_cred_id, token, verify):
     try:
         # drop_table("opn_trade")
-        usdt_balance = exchange.fetch_balance({'type': 'swap'})['USDT']['total']
-        MAX_NO_SELL_TRADE = issueNumberOfTrade(usdt_balance)
-        MAX_NO_BUY_TRADE = 2
         if stop_event.is_set():
             return
 
@@ -514,7 +511,11 @@ def main_job(exchange, user_cred_id, token, verify):
           print(f"⚠️ Skipping {symbol} — already has an open position on exchange")
           #reEnter Details here, for manual trades taken
           return
-        
+
+        usdt_balance = exchange.fetch_balance({'type': 'swap'})['USDT']['total']
+        time.sleep(3)
+        MAX_NO_SELL_TRADE = issueNumberOfTrade(usdt_balance)
+        MAX_NO_BUY_TRADE = 2
         
         position_count = get_side_count(user_cred_id, 0, side)
         print("Position Count: ", position_count)
