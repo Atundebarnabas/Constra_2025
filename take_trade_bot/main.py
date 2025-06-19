@@ -489,7 +489,8 @@ stop_event = threading.Event()  # Global stop signal
 def main_job(exchange, user_cred_id, token, verify):
     try:
         # drop_table("opn_trade")
-        MAX_NO_SELL_TRADE = issueNumberOfTrade(account_balance)
+        usdt_balance = exchange.fetch_balance({'type': 'swap'})['USDT']['total']
+        MAX_NO_SELL_TRADE = issueNumberOfTrade(usdt_balance)
         MAX_NO_BUY_TRADE = 2
         if stop_event.is_set():
             return
@@ -526,8 +527,6 @@ def main_job(exchange, user_cred_id, token, verify):
         # Implement your trade logic here for this signal
         thread_safe_print(f"✅ {verify if hasattr(exchange, 'id') else 'Exchange'} → Processing signal: {signal}")
         side_n_str = "buy" if side == 0 else "sell" if side == 1 else None
-        
-        usdt_balance = exchange.fetch_balance({'type': 'swap'})['USDT']['total']
         usdt_amount = calculateIntialAmount(usdt_balance, leverage)
         
         market_order_id, limit_order_id = place_entry_and_liquidation_limit_order(exchange, symbol, side_n_str, usdt_amount, leverage)
