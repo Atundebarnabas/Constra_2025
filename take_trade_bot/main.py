@@ -193,7 +193,7 @@ def get_side_count(user_cred_id, trade_done, side):
             cursor.execute("""
                 SELECT COUNT(*) AS count FROM opn_trade
                 WHERE user_cred_id = %s AND trade_type = %s AND trade_done = %s AND status = 1
-            """, (user_cred_id, trade_done, side))
+            """, (user_cred_id, side, trade_done))
             result = cursor.fetchone()
             return result['count']
     except Exception as e:
