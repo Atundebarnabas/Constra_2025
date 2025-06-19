@@ -865,6 +865,7 @@ def process_single_position(exchange, pos, signal_map, positionst):
             for future in concurrent.futures.as_completed(futures):
                 try:
                     future.result()
+                    time.sleep(1)  # short pause to prevent busy loop
                 except Exception as e:
                     thread_safe_print(f"❌ Error in async task for symbol {symbol}: {e}")
                     traceback.print_exc()
@@ -924,7 +925,7 @@ def run_exchanges_in_batch(batch):
                 thread_safe_print(f"❌ Error in main_job for user {user_cred_id}")
                 traceback.print_exc()
 
-        # time.sleep(0.2)  # short pause to prevent busy loop
+        time.sleep(3)  # short pause to prevent busy loop
 
 
 def sync_open_orders_loop_batch(batch):
