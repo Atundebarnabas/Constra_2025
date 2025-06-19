@@ -512,10 +512,10 @@ def main_job(exchange, user_cred_id, token, verify):
         position_count = get_side_count(user_cred_id, 0, side)
         print("Position Count: ", position_count)
         if side == 0 and position_count >= MAX_NO_BUY_TRADE:
-            return
+            continue
         elif side == 1 and position_count >= MAX_NO_SELL_TRADE:
             print(f"Max number of sell trade reached ({position_count})!")
-            return
+            continue
         
         if has_open_trade(user_cred_id, symbol):
             print(f"Trade {symbol} already taken for {user_cred_id}")
@@ -606,7 +606,7 @@ def run_all():
             exchange = create_exchange(exchange_name, row['api_key'], row['secret'], password)
             
             # token = generate_mixed_token(exchange_name, row['secret'], length=30)
-            token = "constra2025X9bL7kDq8mNpTz3VwAeU61"
+            token = os.getenv('EXTERNAL_API_TOKEN')
             exchange_list.append((exchange, row['cred_id'], token, verify))
         except Exception as e:
             print(row)
