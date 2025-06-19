@@ -336,15 +336,21 @@ def calculateIntialAmount(account_balance, leverage= 5, divider= 30.0):
     FIRST_ENTRY = round_to_sig_figs((account_balance / divider), 2)
     FIRST_ENTRY_PER_TRADE = round_to_sig_figs((FIRST_ENTRY / MAX_NUMBER_TRADE), 2)
     INITIAL_AMOUNT = FIRST_ENTRY_PER_TRADE * leverage
-    return INITIAL_AMOUNT
+    return FIRST_ENTRY_PER_TRADE
 
 # Trading parameters
 leverage = 5
-multiplier= 1.5
+multiplier= 2
 fromPercnt = 0.2  #20%
 
 def calculateLiquidationTargPrice(_liqprice, _entryprice, _percnt, _round):
     return round_to_sig_figs(_entryprice + (_liqprice - _entryprice) * _percnt, _round)
+
+def get_base_amount(exchange, symbol, usdt_value):
+    ticker = exchange.fetch_ticker(symbol)
+    market_price = ticker['last']
+    base_amount = usdt_value / market_price
+    return base_amount
 
 def place_entry_and_liquidation_limit_order (exchange, symbol, side, usdt_value, leverage):
     try:
@@ -352,18 +358,29 @@ def place_entry_and_liquidation_limit_order (exchange, symbol, side, usdt_value,
         ticker = exchange.fetch_ticker(symbol)
         market_price = ticker['last']
         base_amount = usdt_value / market_price
+        pos_side = 'Long' if side == 'buy' else 'Short'
 
         # 🟡 Set isolated margin
         try:
             exchange.set_margin_mode('isolated', symbol)
         except Exception as e:
             thread_safe_print(f"⚠️ Could not set isolated margin for {symbol}: {e}")
+            try:
+                exchange.set_margin_mode('isolated', symbol, params={'posSide': pos_side})
+                thread_safe_print(f"Successfully set margin mode with posSide={pos_side}")
+            except Exception as e2:
+                thread_safe_print(f"Failed again with posSide: {e2}")
 
         # 🟡 Set leverage
         try:
             exchange.set_leverage(leverage, symbol)
         except Exception as e:
             thread_safe_print(f"⚠️ Could not set leverage for {symbol}: {e}")
+            try:
+                exchange.set_leverage(leverage, symbol, params={'posSide': pos_side})
+                thread_safe_print(f"Successfully set leverage with posSide={pos_side}")
+            except Exception as e2:
+                thread_safe_print(f"Failed again with posSide: {e2}")
 
         thread_safe_print(f"🔔 ORDER → {symbol} | {side.upper()} | Price: {market_price:.4f} | Qty: {base_amount:.5f}")
 
@@ -408,6 +425,7 @@ def place_entry_and_liquidation_limit_order (exchange, symbol, side, usdt_value,
         liquidation_price = float(position.get('liquidationPrice'))
         entry_price = float(position.get('entryPrice') or 0)
         mark_price = float(position.get('markPrice') or 0)
+        contracts = float(position.get('contracts') or 0)
         notional = float(position.get('notional') or 0)
         leverage = float(position.get('leverage') or 1)
 
@@ -420,7 +438,7 @@ def place_entry_and_liquidation_limit_order (exchange, symbol, side, usdt_value,
         thread_safe_print(f"📏 Price Precision: {price_precision}, Sig Digs: {price_sig_digits}")
 
         # 🔁 Calculate amount for limit order (2x notional size)
-        double_notional = notional * multiplier
+        double_notional = (notional / leverage) * multiplier
         order_amount = double_notional / mark_price
         order_amount = round_to_sig_figs(order_amount, amount_sig_digits)
 
@@ -439,7 +457,7 @@ def place_entry_and_liquidation_limit_order (exchange, symbol, side, usdt_value,
                 symbol=symbol,
                 type='limit',
                 side=side,
-                amount=order_amount,
+                amount=contracts,
                 price=target_price
             )
         except ccxt.BaseError as e:
@@ -448,7 +466,7 @@ def place_entry_and_liquidation_limit_order (exchange, symbol, side, usdt_value,
                     symbol=symbol,
                     type='limit',
                     side=side,
-                    amount=order_amount,
+                    amount=contracts,
                     price=target_price,
                     params={'posSide': pos_side_str.capitalize()}
                 )
@@ -471,7 +489,7 @@ stop_event = threading.Event()  # Global stop signal
 def main_job(exchange, user_cred_id, token, verify):
     try:
         # drop_table("opn_trade")
-        MAX_NO_SELL_TRADE = 2
+        MAX_NO_SELL_TRADE = issueNumberOfTrade(account_balance)
         MAX_NO_BUY_TRADE = 2
         if stop_event.is_set():
             return
@@ -513,6 +531,8 @@ def main_job(exchange, user_cred_id, token, verify):
         usdt_amount = calculateIntialAmount(usdt_balance, leverage)
         
         market_order_id, limit_order_id = place_entry_and_liquidation_limit_order(exchange, symbol, side_n_str, usdt_amount, leverage)
+
+        base_amount = get_base_amount(exchange, symbol, usdt_amount)
         
         if market_order_id:
             take_trade_data= {
@@ -521,7 +541,7 @@ def main_job(exchange, user_cred_id, token, verify):
                 "order_id": market_order_id,
                 "symbol": symbol,
                 "trade_type": side,
-                "amount": usdt_amount,
+                "amount": base_amount,
                 "leverage": leverage,
                 "trail_threshold": trail_thresh,
                 "profit_target_distance": profit_target_distance,
@@ -538,7 +558,7 @@ def main_job(exchange, user_cred_id, token, verify):
                     "order_id": market_order_id,
                     "symbol": symbol,
                     "trade_type": side,
-                    "amount": usdt_amount,
+                    "amount": base_amount,
                     "leverage": leverage,
                     "trail_threshold": trail_thresh,
                     "profit_target_distance": profit_target_distance,
@@ -585,7 +605,7 @@ def run_all():
             exchange = create_exchange(exchange_name, row['api_key'], row['secret'], password)
             
             # token = generate_mixed_token(exchange_name, row['secret'], length=30)
-            token = os.getenv('EXTERNAL_API_TOKEN')
+            token = "constra2025X9bL7kDq8mNpTz3VwAeU61"
             exchange_list.append((exchange, row['cred_id'], token, verify))
         except Exception as e:
             print(row)
