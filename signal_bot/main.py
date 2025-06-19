@@ -290,25 +290,7 @@ def check_trade_signal(exchange, symbol, ohlcv):
     }
 
 # ---------- MAIN JOB AND SCHEDULER -----------
-last_run_time = {}
-cooldown_announced = {}
-def main_job(exchange, exchange_db_id, timeframe='1h', cooldown_seconds=1800):
-
-    global last_run_time, cooldown_announced
-
-    now = time.time()
-    last_run = last_run_time.get(exchange.id, 0)
-
-    if now - last_run < cooldown_seconds:
-        if not cooldown_announced.get(exchange.id, False):
-            wait_time = int((last_run + cooldown_seconds) - now)
-            thread_safe_print(f"⏳ Cooldown active for {exchange.id}. Next run in {wait_time}s.")
-            cooldown_announced[exchange.id] = True  # Mark as announced
-        return
-
-    # Reset announcement flag
-    cooldown_announced[exchange.id] = False
-    last_run_time[exchange.id] = now  # Update timestamp
+def main_job(exchange, exchange_db_id, timeframe='1h'):
 
     # ---- Your job logic starts here ----
     markets, all_symbols = load_markets_once_per_hour(exchange)
@@ -382,12 +364,12 @@ def main_job(exchange, exchange_db_id, timeframe='1h', cooldown_seconds=1800):
         thread_safe_print(f"⚠️ Gave up retrying {len(remaining_symbols)} symbols for {exchange.id} after {max_retries} attempts.")
 
 
-def run_exchange_scheduler(exchange, exchange_db_id, timeframe=timeframe):
-    main_job(exchange=exchange, exchange_db_id=exchange_db_id, timeframe=timeframe, cooldown_seconds=3600//2)
+def run_exchange_scheduler(exchange, exchange_db_id, timeframe='1h', cooldown_seconds=180, interval_seconds=1800):
     while not stop_event.is_set():
         try:
-            schedule.run_pending()
-            time.sleep(0.8)
+            thread_safe_print(f"🔁 Running scheduler loop for {exchange.id} at {datetime.now().strftime('%H:%M:%S')}")
+            main_job(exchange=exchange, exchange_db_id=exchange_db_id, timeframe=timeframe)
+            time.sleep(interval_seconds)
         except Exception:
             thread_safe_print(f"⚠️ Scheduler error for {exchange.id}. Retrying in 10 seconds...")
             traceback.print_exc()
