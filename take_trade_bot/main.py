@@ -502,6 +502,20 @@ def main_job(exchange, user_cred_id, token, verify):
         side = signal['trade_type']
         trail_thresh = 0.10 # 10% default
         profit_target_distance = 0.06 # 60% default
+
+        usdt_balance = exchange.fetch_balance({'type': 'swap'})['USDT']['total']
+        time.sleep(2)
+        MAX_NO_SELL_TRADE = issueNumberOfTrade(usdt_balance)
+        MAX_NO_BUY_TRADE = 2
+
+
+        position_count = get_side_count(user_cred_id, 0, side)
+        print("Position Count: ", position_count)
+        if side == 0 and position_count >= MAX_NO_BUY_TRADE:
+            return
+        elif side == 1 and position_count >= MAX_NO_SELL_TRADE:
+            print(f"Max number of sell trade reached ({position_count})!")
+            return
         
         if has_open_trade(user_cred_id, symbol):
             print(f"Trade {symbol} already taken for {user_cred_id}")
@@ -511,19 +525,6 @@ def main_job(exchange, user_cred_id, token, verify):
           print(f"⚠️ Skipping {symbol} — already has an open position on exchange")
           #reEnter Details here, for manual trades taken
           return
-
-        usdt_balance = exchange.fetch_balance({'type': 'swap'})['USDT']['total']
-        time.sleep(3)
-        MAX_NO_SELL_TRADE = issueNumberOfTrade(usdt_balance)
-        MAX_NO_BUY_TRADE = 2
-        
-        position_count = get_side_count(user_cred_id, 0, side)
-        print("Position Count: ", position_count)
-        if side == 0 and position_count >= MAX_NO_BUY_TRADE:
-            return
-        elif side == 1 and position_count >= MAX_NO_SELL_TRADE:
-            print(f"Max number of sell trade reached ({position_count})!")
-            return
         
         # Implement your trade logic here for this signal
         thread_safe_print(f"✅ {verify if hasattr(exchange, 'id') else 'Exchange'} → Processing signal: {signal}")
