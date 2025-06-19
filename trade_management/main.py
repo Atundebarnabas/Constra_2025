@@ -572,14 +572,12 @@ def trailing_stop_logic(exchange, position, trade_id, trade_order_id, trail_orde
 
     if not entry_price or not mark_price or side not in ['long', 'short'] or contracts <= 0:
         return
-    pos_mode = position['info'].get('posMode', '').lower()
-    print(f"Symbol: [{symbol}] side: {sideRl}, posMode: {pos_mode} | posSide: {position['info'].get('posSide', '')}")
     if margin_mode != "isolated":
         pos_mode = position['info'].get('posMode', '').lower()
-        print(f"Symbol: [{symbol}] side: {sideRl}, posMode: {pos_mode} | posSide: {position['info'].get('posSide', '')}")
+        print(f"🛑🛑🛑🛑Symbol: [{symbol}] side: {sideRl}, posMode: {pos_mode} | posSide: {position['info'].get('posSide', '')}")
         if pos_mode == 'oneway':
             set_phemex_leverage(exchange, symbol, leverage=leverageDefault)
-        elif pos_mode == 'hedge':
+        elif pos_mode == 'hedged':
             set_phemex_leverage(exchange, symbol, long_leverage=leverageDefault, short_leverage=leverageDefault)
 
     if leverage != leverageDefault:
@@ -588,7 +586,7 @@ def trailing_stop_logic(exchange, position, trade_id, trade_order_id, trail_orde
         print(f"🛑🛑Symbol: [{symbol}] side: {sideRl}, posMode: {pos_mode} | posSide: {position['info'].get('posSide', '')}")
         if pos_mode == 'oneway':
             set_phemex_leverage(exchange, symbol, leverage=leverageDefault)
-        elif pos_mode == 'hedge':
+        elif pos_mode == 'hedged':
             set_phemex_leverage(exchange, symbol, long_leverage=leverageDefault, short_leverage=leverageDefault)
 
     change = (mark_price - entry_price) / entry_price if side == 'long' else (entry_price - mark_price) / entry_price
