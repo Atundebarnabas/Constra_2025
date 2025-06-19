@@ -511,51 +511,33 @@ def main_job(exchange, user_cred_id, token, verify):
 
         position_count = get_side_count(user_cred_id, 0, side)
         print("Position Count: ", position_count)
-        if side == 0 and position_count >= MAX_NO_BUY_TRADE:
-            continue
-        elif side == 1 and position_count >= MAX_NO_SELL_TRADE:
-            print(f"Max number of sell trade reached ({position_count})!")
-            continue
-        
-        if has_open_trade(user_cred_id, symbol):
-            print(f"Trade {symbol} already taken for {user_cred_id}")
-            return
-        
-        if has_open_position(exchange, symbol):
-          print(f"⚠️ Skipping {symbol} — already has an open position on exchange")
-          #reEnter Details here, for manual trades taken
-          return
-        
-        # Implement your trade logic here for this signal
-        thread_safe_print(f"✅ {verify if hasattr(exchange, 'id') else 'Exchange'} → Processing signal: {signal}")
-        side_n_str = "buy" if side == 0 else "sell" if side == 1 else None
-        usdt_amount = calculateIntialAmount(usdt_balance, leverage)
-        
-        market_order_id, limit_order_id = place_entry_and_liquidation_limit_order(exchange, symbol, side_n_str, usdt_amount, leverage)
-
-        base_amount = get_base_amount(exchange, symbol, usdt_amount)
-        
-        if market_order_id:
-            take_trade_data= {
-                "user_cred_id": user_cred_id,
-                "trade_signal": trade_signal_id,
-                "order_id": market_order_id,
-                "symbol": symbol,
-                "trade_type": side,
-                "amount": base_amount,
-                "leverage": leverage,
-                "trail_threshold": trail_thresh,
-                "profit_target_distance": profit_target_distance,
-                "trade_done": 0,
-                "status": 1
-            }
+        if (side == 0 and position_count >= MAX_NO_BUY_TRADE):
+            print(f"❌ Max number of buy trades reached ({position_count})!")
+        elif (side == 1 and position_count >= MAX_NO_SELL_TRADE):
+            print(f"❌ Max number of sell trades reached ({position_count})!")
+        else:
+            if has_open_trade(user_cred_id, symbol):
+                print(f"Trade {symbol} already taken for {user_cred_id}")
+                return
             
-            if insert_trade_signal(take_trade_data):
-                # SEND BACKUP DATA TO MEDICTREAT.COM
-                print("Token: ", token)
-                backup_trade_data= {
-                    "token": token,
-                    "user_id": user_cred_id,
+            if has_open_position(exchange, symbol):
+              print(f"⚠️ Skipping {symbol} — already has an open position on exchange")
+              #reEnter Details here, for manual trades taken
+              return
+            
+            # Implement your trade logic here for this signal
+            thread_safe_print(f"✅ {verify if hasattr(exchange, 'id') else 'Exchange'} → Processing signal: {signal}")
+            side_n_str = "buy" if side == 0 else "sell" if side == 1 else None
+            usdt_amount = calculateIntialAmount(usdt_balance, leverage)
+            
+            market_order_id, limit_order_id = place_entry_and_liquidation_limit_order(exchange, symbol, side_n_str, usdt_amount, leverage)
+    
+            base_amount = get_base_amount(exchange, symbol, usdt_amount)
+            
+            if market_order_id:
+                take_trade_data= {
+                    "user_cred_id": user_cred_id,
+                    "trade_signal": trade_signal_id,
                     "order_id": market_order_id,
                     "symbol": symbol,
                     "trade_type": side,
@@ -566,7 +548,24 @@ def main_job(exchange, user_cred_id, token, verify):
                     "trade_done": 0,
                     "status": 1
                 }
-                save_trade_history(backup_trade_data)
+                
+                if insert_trade_signal(take_trade_data):
+                    # SEND BACKUP DATA TO MEDICTREAT.COM
+                    print("Token: ", token)
+                    backup_trade_data= {
+                        "token": token,
+                        "user_id": user_cred_id,
+                        "order_id": market_order_id,
+                        "symbol": symbol,
+                        "trade_type": side,
+                        "amount": base_amount,
+                        "leverage": leverage,
+                        "trail_threshold": trail_thresh,
+                        "profit_target_distance": profit_target_distance,
+                        "trade_done": 0,
+                        "status": 1
+                    }
+                    save_trade_history(backup_trade_data)
            
 
         # Your trading execution logic (currently commented out)
