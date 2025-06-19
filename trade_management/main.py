@@ -577,16 +577,20 @@ def trailing_stop_logic(exchange, position, trade_id, trade_order_id, trail_orde
         print(f"Symbol: [{symbol}] side: {sideRl}, posMode: {pos_mode} | posSide: {position['info'].get('posSide', '')}")
         if pos_mode == 'oneway':
             set_phemex_leverage(exchange, symbol, leverage=leverageDefault)
+            time.sleep(3)
         elif pos_mode == 'hedge':
             set_phemex_leverage(exchange, symbol, long_leverage=leverageDefault, short_leverage=leverageDefault)
+            time.sleep(3)
 
     if leverage != leverageDefault:
         # Depending on mode, set leverage appropriately as above
         pos_mode = position['info'].get('posMode', '').lower()
         if pos_mode == 'oneway':
             set_phemex_leverage(exchange, symbol, leverage=leverageDefault)
+            time.sleep(3)
         elif pos_mode == 'hedge':
             set_phemex_leverage(exchange, symbol, long_leverage=leverageDefault, short_leverage=leverageDefault)
+            time.sleep(3)
 
     change = (mark_price - entry_price) / entry_price if side == 'long' else (entry_price - mark_price) / entry_price
     profit_distance = change * leverage
