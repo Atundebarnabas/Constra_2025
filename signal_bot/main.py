@@ -72,6 +72,7 @@ def ensure_exchanges_table_exists():
 def get_exchanges():
     try:
         ensure_exchanges_table_exists()
+        ensure_trade_signal_exists()
         conn = db_conn.get_connection()
         with conn.cursor() as cursor:
             cursor.execute("SELECT * FROM exchanges WHERE status = 1")
