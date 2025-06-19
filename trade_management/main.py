@@ -765,12 +765,12 @@ def sync_open_orders_to_db(exchange, user_id):
         for position in positions:
             # print("Position: ", position)
             raw_pos_symbol = position['symbol']
-            exec_seq = position.get('execSeq', '')
+            side = position['side'].lower()
             symbol = find_matching_symbol(raw_pos_symbol, markets)
             if not symbol:
                 print(f"No matching ccxt market symbol found for raw position symbol {raw_pos_symbol}")
             contracts = float(position.get('contracts', 0))
-            matching_order_id = f"{user_id}_{symbol}_live"
+            matching_order_id = f"{user_id}_{symbol}_live_{side}"
 
             cursor.execute(
                 "SELECT 1 FROM opn_trade WHERE order_id=%s AND symbol=%s AND user_cred_id=%s AND status = 1 LIMIT 1",
