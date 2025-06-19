@@ -577,20 +577,17 @@ def trailing_stop_logic(exchange, position, trade_id, trade_order_id, trail_orde
         print(f"Symbol: [{symbol}] side: {sideRl}, posMode: {pos_mode} | posSide: {position['info'].get('posSide', '')}")
         if pos_mode == 'oneway':
             set_phemex_leverage(exchange, symbol, leverage=leverageDefault)
-            time.sleep(3)
         elif pos_mode == 'hedge':
             set_phemex_leverage(exchange, symbol, long_leverage=leverageDefault, short_leverage=leverageDefault)
-            time.sleep(3)
 
-    if leverage > leverageDefault:
+    if leverage != leverageDefault:
+        print(f"🛑🛑Symbol: [{symbol}] side: {sideRl}, posMode: {pos_mode} | posSide: {position['info'].get('posSide', '')}")
         # Depending on mode, set leverage appropriately as above
         pos_mode = position['info'].get('posMode', '').lower()
         if pos_mode == 'oneway':
             set_phemex_leverage(exchange, symbol, leverage=leverageDefault)
-            time.sleep(3)
         elif pos_mode == 'hedge':
             set_phemex_leverage(exchange, symbol, long_leverage=leverageDefault, short_leverage=leverageDefault)
-            time.sleep(3)
 
     change = (mark_price - entry_price) / entry_price if side == 'long' else (entry_price - mark_price) / entry_price
     profit_distance = change * leverage
@@ -601,7 +598,7 @@ def trailing_stop_logic(exchange, position, trade_id, trade_order_id, trail_orde
     thread_safe_print(f"\n📈💰 {symbol} ({side.upper()}) | Leverage: {leverage} | Contract(Amount): {contracts} | MarginMode: {margin_mode}")
     thread_safe_print(f"Profit-Distance: {profit_distance}, PNL → Unrealized: {unrealized_pnl:.4f}, Realized: {realized_pnl:.4f}, Total: {total_pnl:.4f}")
 
-    if total_pnl <= 0.01:
+    if total_pnl <= 0.001:
         if trail_order_id:
             cancel_conditional_order = cancel_existing_stop_order(exchange, symbol, trail_order_id, side)
             if cancel_conditional_order:
