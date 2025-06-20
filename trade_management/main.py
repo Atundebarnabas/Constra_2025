@@ -605,6 +605,7 @@ def trailing_stop_logic(exchange, position, trade_id, trade_order_id, trail_orde
                 trailing_update = update_row(
                     table_name = 'opn_trade',
                     updates = {
+                        'trail_order_id': "",
                         'trail_threshold': trail_theshold,
                         'profit_target_distance': profit_target_distance,
                         'trade_done': 0
