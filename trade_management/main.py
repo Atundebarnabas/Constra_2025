@@ -535,7 +535,7 @@ def create_stop_order(exchange, symbol, side, contracts, new_stop_price):
         thread_safe_print(f"❌ Both order attempts failed: {e2}")
         return None
 
-def set_phemex_leverage(exchange, symbol, leverage=None, long_leverage=None, short_leverage=None, side=side):
+def set_phemex_leverage(exchange, symbol, leverage=None, long_leverage=None, short_leverage=None, side=None):
     clean_symbol = symbol.split(':')[0].replace('/', '')  # BIDUSDT format
     
     path = 'g-positions/leverage'
@@ -545,6 +545,10 @@ def set_phemex_leverage(exchange, symbol, leverage=None, long_leverage=None, sho
     params = {
         'symbol': clean_symbol,
     }
+
+    if side is None:
+        print("Side is None, check trade side")
+        return
     
     if leverage is not None:
         params['leverageRr'] = str(leverage)  # One-way mode leverage
