@@ -535,7 +535,7 @@ def create_stop_order(exchange, symbol, side, contracts, new_stop_price):
         thread_safe_print(f"❌ Both order attempts failed: {e2}")
         return None
 
-def set_phemex_leverage(exchange, symbol, leverage=None, long_leverage=None, short_leverage=None):
+def set_phemex_leverage(exchange, symbol, leverage=None, long_leverage=None, short_leverage=None, side):
     clean_symbol = symbol.split(':')[0].replace('/', '')  # BIDUSDT format
     
     path = 'g-positions/leverage'
@@ -555,6 +555,8 @@ def set_phemex_leverage(exchange, symbol, leverage=None, long_leverage=None, sho
     
     try:
         response = exchange.fetch2(path, 'private', method, params)
+        if response:
+            cancel_orphan_orders(exchange, symbol, side, 'limit') 
         print(f"Set leverage response: {response}")
     except Exception as e:
         print(f"⚠️ Could not set leverage: {e}")
@@ -565,6 +567,7 @@ def trailing_stop_logic(exchange, position, trade_id, trade_order_id, trail_orde
     mark_price = float(position.get('markPrice') or 0)
     sideRl = position.get('side', '')
     side = sideRl.lower()
+    sideNml = position["info"]["side"]
     leverage = float(position.get("leverage") or 1)
     leverageDefault = 5
     contracts = float(position.get('contracts') or 0)
@@ -576,18 +579,18 @@ def trailing_stop_logic(exchange, position, trade_id, trade_order_id, trail_orde
         pos_mode = position['info'].get('posMode', '').lower()
         print(f"🛑🛑🛑🛑Symbol: [{symbol}] side: {sideRl}, posMode: {pos_mode} | posSide: {position['info'].get('posSide', '')}")
         if pos_mode == 'oneway':
-            set_phemex_leverage(exchange, symbol, leverage=leverageDefault)
+            set_phemex_leverage(exchange, symbol, leverage=leverageDefault, side=sideNml)
         elif pos_mode == 'hedged':
-            set_phemex_leverage(exchange, symbol, long_leverage=leverageDefault, short_leverage=leverageDefault)
+            set_phemex_leverage(exchange, symbol, long_leverage=leverageDefault, short_leverage=leverageDefault, side=sideNml)
 
     if leverage != leverageDefault:
         # Depending on mode, set leverage appropriately as above
         pos_mode = position['info'].get('posMode', '').lower()
         print(f"🛑🛑Symbol: [{symbol}] side: {sideRl}, posMode: {pos_mode} | posSide: {position['info'].get('posSide', '')}")
         if pos_mode == 'oneway':
-            set_phemex_leverage(exchange, symbol, leverage=leverageDefault)
+            set_phemex_leverage(exchange, symbol, leverage=leverageDefault, side=sideNml)
         elif pos_mode == 'hedged':
-            set_phemex_leverage(exchange, symbol, long_leverage=leverageDefault, short_leverage=leverageDefault)
+            set_phemex_leverage(exchange, symbol, long_leverage=leverageDefault, short_leverage=leverageDefault, side=sideNml)
 
     change = (mark_price - entry_price) / entry_price if side == 'long' else (entry_price - mark_price) / entry_price
     profit_distance = change * leverage
