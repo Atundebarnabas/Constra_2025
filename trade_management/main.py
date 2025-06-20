@@ -474,17 +474,17 @@ def monitor_position_and_reenter(exchange, symbol, position, verbose=False, mult
 def cancel_existing_stop_order(exchange, symbol, order_id, side):
     try:
         cancel_order = exchange.cancel_order(order_id, symbol=symbol)
-        thread_safe_print(f"❌ Canceled previous stop-loss {order_id} (one-way)")
+        thread_safe_print(f"❌ Canceled previous stop-loss {order_id} (one-way) symol[{symbol}]")
         return True
     except Exception as e:
         if "TE_ERR_INCONSISTENT_POS_MODE" in str(e):
             try:
                 params = {'posSide': 'Long' if side == 'long' else 'Short'}
                 cancel_order = exchange.cancel_order(order_id, symbol=symbol, params=params)
-                thread_safe_print(f"❌ Canceled stop-loss {order_id} (with posSide)")
+                thread_safe_print(f"❌ Canceled stop-loss {order_id} (with posSide) symol[{symbol}]")
                 return True
             except Exception as e2:
-                thread_safe_print(f"⚠️ Still failed with posSide: {e2}")
+                thread_safe_print(f"⚠️ Still failed with posSide symol[{symbol}]: {e2}")
                 return False
         else:
             thread_safe_print(f"⚠️ Cancel failed: {e}")
