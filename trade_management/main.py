@@ -779,8 +779,8 @@ def sync_open_orders_to_db(exchange, user_id):
             matching_order_id = f"{user_id}_{symbol}_live_{side}"
 
             cursor.execute(
-                "SELECT 1 FROM opn_trade WHERE order_id=%s AND symbol=%s AND user_cred_id=%s AND status = 1 LIMIT 1",
-                (matching_order_id, symbol, user_id)
+                "SELECT 1 FROM opn_trade WHERE symbol=%s AND user_cred_id=%s AND status = 1 LIMIT 1",
+                (symbol, user_id)
             )
             if cursor.fetchone():
                 continue  # Already stored
