@@ -331,7 +331,7 @@ def issueNumberOfTrade(acc_bal):
 
     
 
-def calculateIntialAmount(account_balance, leverage= 5, divider= 30.0):
+def calculateIntialAmount(account_balance, leverage= 5, divider= 10.0):
     MAX_NUMBER_TRADE = issueNumberOfTrade(account_balance)
     FIRST_ENTRY = round_to_sig_figs((account_balance / divider), 2)
     FIRST_ENTRY_PER_TRADE = round_to_sig_figs((FIRST_ENTRY / MAX_NUMBER_TRADE), 2)
