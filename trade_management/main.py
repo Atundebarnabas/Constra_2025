@@ -609,26 +609,22 @@ def trailing_stop_logic(exchange, position, trade_id, trade_order_id, trail_orde
                         'profit_target_distance': profit_target_distance,
                         'trade_done': 0
                     },
-                    conditions = {
-                        'id': ('=', trade_id),
-                        'symbol': symbol
-                    }
-                    )
-                    if trailing_update:
-                        print("No more trailing (for now) - Trade Order Id: ", trade_order_id)
-                        update_trade_history({
-                            "token": TOKEN,
-                            "table_name": "trade_history",
-                            "updates": {
-                                "trail_threshold": trail_theshold,
-                                "profit_target_distance": profit_target_distance,
-                                "trade_done": 0
-                            },
-                            "conditions": {
-                                "order_id": ("=", trade_order_id),
-                                "symbol": symbol
-                            }
-                        })
+                    conditions = {'id': ('=', trade_id),'symbol': symbol})
+                if trailing_update:
+                    print("No more trailing (for now) - Trade Order Id: ", trade_order_id)
+                    update_trade_history({
+                        "token": TOKEN,
+                        "table_name": "trade_history",
+                        "updates": {
+                            "trail_threshold": trail_theshold,
+                            "profit_target_distance": profit_target_distance,
+                            "trade_done": 0
+                        },
+                        "conditions": {
+                            "order_id": ("=", trade_order_id),
+                            "symbol": symbol
+                        }
+                    })
         return
 
     if profit_distance >= trail_theshold:
