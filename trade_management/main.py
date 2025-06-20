@@ -772,6 +772,7 @@ def sync_open_orders_to_db(exchange, user_id):
             # print("Position: ", position)
             raw_pos_symbol = position['symbol']
             side = position['side'].lower()
+            side_int = 0 if side == 'buy' else 1 if side == 'sell' else None
             symbol = find_matching_symbol(raw_pos_symbol, markets)
             if not symbol:
                 print(f"No matching ccxt market symbol found for raw position symbol {raw_pos_symbol}")
@@ -779,8 +780,8 @@ def sync_open_orders_to_db(exchange, user_id):
             matching_order_id = f"{user_id}_{symbol}_live_{side}"
 
             cursor.execute(
-                "SELECT 1 FROM opn_trade WHERE symbol=%s AND user_cred_id=%s AND status = 1 LIMIT 1",
-                (symbol, user_id)
+                "SELECT 1 FROM opn_trade WHERE symbol=%s AND trade_type=%s AND user_cred_id=%s AND status = 1 LIMIT 1",
+                (symbol, side_int, user_id)
             )
             if cursor.fetchone():
                 continue  # Already stored
