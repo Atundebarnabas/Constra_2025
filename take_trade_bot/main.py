@@ -513,7 +513,7 @@ def main_job(exchange, user_cred_id, token, verify):
         usdt_balance_free = usdt_balances.get('free', 0)
         usdt_balance_total = usdt_balances.get('total', 0)
         
-        if check_equity_usage(usdt_balance_free, usdt_balance_total):
+        if check_equity_usage(usdt_balances):
             return
         time.sleep(2)
         MAX_NO_SELL_TRADE = issueNumberOfTrade(usdt_balance_total) + 4
