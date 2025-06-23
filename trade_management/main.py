@@ -605,7 +605,7 @@ def trailing_stop_logic(exchange, position, trade_id, trade_order_id, trail_orde
     thread_safe_print(f"\n📈💰 {symbol} ({side.upper()}) | Leverage: {leverage} | Contract(Amount): {contracts} | MarginMode: {margin_mode}")
     thread_safe_print(f"Profit-Distance: {profit_distance}, PNL → Unrealized: {unrealized_pnl:.4f}, Realized: {realized_pnl:.4f}, Total: {total_pnl:.4f}")
 
-    if total_pnl <= 0.001:
+    if total_pnl <= 0.01:
         if trail_order_id:
             cancel_conditional_order = cancel_existing_stop_order(exchange, symbol, trail_order_id, side)
             if cancel_conditional_order:
