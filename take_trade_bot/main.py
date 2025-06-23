@@ -338,6 +338,12 @@ def calculateIntialAmount(account_balance, leverage= 5, divider= 7.0):
     INITIAL_AMOUNT = FIRST_ENTRY_PER_TRADE * leverage
     return FIRST_ENTRY_PER_TRADE
 
+def check_equity_usage(balance):
+    total = float(balance['total']['USDT'])
+    free = float(balance['free']['USDT'])
+    used = total - free
+    return total > 0 and used >= 0.5 * total
+
 # Trading parameters
 leverage = 5
 multiplier= 2
@@ -503,9 +509,14 @@ def main_job(exchange, user_cred_id, token, verify):
         trail_thresh = 0.10 # 10% default
         profit_target_distance = 0.06 # 60% default
 
-        usdt_balance = exchange.fetch_balance({'type': 'swap'})['USDT']['total']
+        usdt_balances = exchange.fetch_balance({'type': 'swap'}).get('USDT', {})
+        usdt_balance_free = usdt_balances.get('free', 0)
+        usdt_balance_total = usdt_balances.get('total', 0)
+        
+        if check_equity_usage(usdt_balance_free, usdt_balance_total):
+            return
         time.sleep(2)
-        MAX_NO_SELL_TRADE = issueNumberOfTrade(usdt_balance)
+        MAX_NO_SELL_TRADE = issueNumberOfTrade(usdt_balance_total) + 4
         MAX_NO_BUY_TRADE = 2
 
 
