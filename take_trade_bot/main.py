@@ -331,7 +331,7 @@ def issueNumberOfTrade(acc_bal):
 
     
 
-def calculateIntialAmount(account_balance, leverage= 5, divider= 7.0):
+def calculateIntialAmount(account_balance, leverage= 5, divider= 5.0):
     MAX_NUMBER_TRADE = issueNumberOfTrade(account_balance)
     FIRST_ENTRY = round_to_sig_figs((account_balance / divider), 2)
     FIRST_ENTRY_PER_TRADE = round_to_sig_figs((FIRST_ENTRY / MAX_NUMBER_TRADE), 2)
@@ -541,7 +541,7 @@ def main_job(exchange, user_cred_id, token, verify):
             # Implement your trade logic here for this signal
             thread_safe_print(f"✅ {verify if hasattr(exchange, 'id') else 'Exchange'} → Processing signal: {signal}")
             side_n_str = "buy" if side == 0 else "sell" if side == 1 else None
-            usdt_amount = calculateIntialAmount(usdt_balance, leverage)
+            usdt_amount = calculateIntialAmount(usdt_balance_total, leverage)
             
             market_order_id, limit_order_id = place_entry_and_liquidation_limit_order(exchange, symbol, side_n_str, usdt_amount, leverage)
     
