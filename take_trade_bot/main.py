@@ -339,8 +339,8 @@ def calculateIntialAmount(account_balance, leverage= 5, divider= 7.0):
     return FIRST_ENTRY_PER_TRADE
 
 def check_equity_usage(balance):
-    total = float(balance['total']['USDT'])
-    free = float(balance['free']['USDT'])
+    total = float(balance.get('total', 0))
+    free = float(balance.get('free', 0))
     used = total - free
     return total > 0 and used >= 0.5 * total
 
