@@ -331,7 +331,7 @@ def issueNumberOfTrade(acc_bal):
 
     
 
-def calculateIntialAmount(account_balance, leverage= 5, divider= 5.0):
+def calculateIntialAmount(account_balance, leverage= 5, divider= 7.0):
     MAX_NUMBER_TRADE = issueNumberOfTrade(account_balance)
     FIRST_ENTRY = round_to_sig_figs((account_balance / divider), 2)
     FIRST_ENTRY_PER_TRADE = round_to_sig_figs((FIRST_ENTRY / MAX_NUMBER_TRADE), 2)
@@ -516,7 +516,7 @@ def main_job(exchange, user_cred_id, token, verify):
         if check_equity_usage(usdt_balances):
             return
         time.sleep(2)
-        MAX_NO_SELL_TRADE = issueNumberOfTrade(usdt_balance_total) + 4
+        MAX_NO_SELL_TRADE = issueNumberOfTrade(usdt_balance_total)
         MAX_NO_BUY_TRADE = 2
 
 
