@@ -550,11 +550,11 @@ def monitor_position_and_reenter(exchange, trade_id, symbol, position, lv_size, 
         if re_entry_count < RE_FIRST_STOP:
             re_entry_size = contracts
         elif RE_FIRST_STOP <= re_entry_count < RE_SECOND_STOP:
-            re_entry_size = contracts / 2
+            re_entry_size = contracts / 2.0
         elif RE_SECOND_STOP <= re_entry_count < RE_THIRD_STOP:
-            re_entry_size = contracts / 3
+            re_entry_size = contracts / 3.0
         else:
-            re_entry_size = contracts / 4
+            re_entry_size = contracts / 4.0
             
         if verbose:
             print(f"🔁 Re-entry Size: {re_entry_size:.2f} (Count: {re_entry_count})")
@@ -963,7 +963,8 @@ def process_single_position(exchange, pos, signal_map, positionst):
     trail_profit_distance = float(row.get('profit_target_distance', 0.06))
     side_int = row.get('trade_type')
     trade_done = row.get('trade_done')
-    trade_reentry_count = row.get('re_entry_count')
+    trade_reentry_count_db = row.get('re_entry_count')
+    trade_reentry_count = int(trade_reentry_count_db or 0)
     status = row.get('status')
     side = 'buy' if side_int == 0 else 'sell' if side_int == 1 else None
     try:
