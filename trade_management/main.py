@@ -2,7 +2,9 @@ import os
 import sys
 import time
 import requests
+from collections import defaultdict
 import threading
+from threading import Lock
 import concurrent.futures
 from concurrent.futures import ThreadPoolExecutor
 import math
@@ -23,7 +25,6 @@ from db_config.db_config import Database
 # PERSONAL DEVELOPMENT - GETTING TO BECOME THE KIND OF PERSON YOU WANT TO BE
 # GET SMART (KNOWLEDGE, READ THE BOOKS, GET IDEA, WORK ON THEM)
 
-stop_event = threading.Event()  # Global stop signal
 
 API_URL = "https://medictreats.com/constra_api/save-trade.php"
 UPDATE_API_URL = "https://medictreats.com/constra_api/update-trade.php"
@@ -36,6 +37,19 @@ db_conn = Database(
     database= os.getenv('DB_DATABASE'),
     port= int(os.getenv('DB_PORT'))
 )
+
+stop_event = threading.Event()  # Global stop signal
+print_lock = threading.Lock()
+buffer_lock = threading.Lock()
+symbol_buffers = defaultdict(list)
+# Global lock dictionary for symbols
+re_symbol_locks = {}
+re_symbol_locks_lock = threading.Lock()  # Protects symbol_locks
+# Global symbol-to-thread tracker per exchange key
+symbol_locks = {}
+symbol_locks_lock = threading.Lock()
+# Thread-local storage for context
+thread_context = threading.local()
 
 def ensure_user_cred_table_exists():
     create_table_sql = """
@@ -216,6 +230,33 @@ def truncate_table(table_name):
     except Exception as e:
         print(f"❌ Failed to truncate table: {e}")
         return False
+    
+def add_columns(table_name, column_definitions):
+    """
+    Adds one or more columns to a table with optional positioning.
+    
+    Args:
+        table_name (str): The name of the table to alter.
+        column_definitions (list of str): Column definitions, e.g. 
+            ["email VARCHAR(100) AFTER name", "status TINYINT(1) AFTER email"]
+    
+    Returns:
+        bool: True if successful, False otherwise.
+    """
+    conn = db_conn.get_connection()
+    try:
+        with conn.cursor() as cursor:
+            alter_parts = [f"ADD COLUMN {definition}" for definition in column_definitions]
+            alter_sql = f"ALTER TABLE `{table_name}` " + ", ".join(alter_parts) + ";"
+            cursor.execute(alter_sql)
+        
+        conn.commit()
+        print(f"✅ Columns added to `{table_name}`: {column_definitions}")
+        return True
+
+    except Exception as e:
+        print(f"❌ Failed to add columns to `{table_name}`: {e}")
+        return False
 
 def save_trade_history(data: dict):
     try:
@@ -281,12 +322,36 @@ def create_exchange(exchange_name, api_key, secret, password=None):
     except Exception as e:
         raise Exception(f"Failed to create {exchange_name} exchange: {e}")
 
+def set_thread_context(account_id=None, symbol=None):
+    thread_context.account_id = account_id
+    thread_context.symbol = symbol
 
-print_lock = threading.Lock()
+def get_thread_context():
+    return getattr(thread_context, 'account_id', None), getattr(thread_context, 'symbol', None)
 
-def thread_safe_print(*args, **kwargs):
-    with print_lock:
-        print(*args, **kwargs)
+def buffer_print(*args):
+    line = ' '.join(str(a) for a in args)
+    account_id, symbol = get_thread_context()
+    if account_id is None or symbol is None:
+        # fallback to immediate print if no context
+        with print_lock:
+            print(line)
+        return
+
+    with buffer_lock:
+        symbol_buffers[(account_id, symbol)].append(line)
+
+def flush_symbol_buffer():
+    account_id, symbol = get_thread_context()
+    if account_id is None or symbol is None:
+        return
+
+    with buffer_lock:
+        lines = symbol_buffers.pop((account_id, symbol), [])
+    if lines:
+        full_message = '\n'.join(lines) + '\n'
+        with print_lock:
+            print(full_message)
 
 def count_sig_digits(precision):
     # Count digits after decimal point if it's a fraction
@@ -304,11 +369,34 @@ def round_to_sig_figs(num, sig_figs):
 def calculateLiquidationTargPrice(_liqprice, _entryprice, _percnt, _round):
     return round_to_sig_figs(_entryprice + (_liqprice - _entryprice) * _percnt, _round)
 
+def get_symbol_lock(symbol):
+    with re_symbol_locks_lock:
+        if symbol not in re_symbol_locks:
+            re_symbol_locks[symbol] = threading.Lock()
+        return re_symbol_locks[symbol]
+    
+def safe_reEnterTrade(exchange, symbol, order_side, trigger_price, re_entry_size, order_type):
+    lock = get_symbol_lock(symbol)
+    acquired = lock.acquire(blocking=False)
+    if not acquired:
+        # Another thread is already re-entering this symbol
+        buffer_print(f"🔒 Re-entry for {symbol} skipped: already in progress.")
+        return False
+
+    try:
+        # Critical section - only one thread per symbol here
+        result = reEnterTrade(exchange, symbol, order_side, trigger_price, re_entry_size, order_type)
+        if result:
+            buffer_print(f"✅ Re-entered trade for {symbol}")
+        return result
+    finally:
+        lock.release()
+
 def reEnterTrade(exchange, symbol, order_side, order_price, order_amount, order_type):
     try:
         # Check if symbol is futures (adjust this check to your actual symbol format)
         if ":USDT" not in symbol:
-            thread_safe_print(f"Skipping re-entry order for non-futures symbol: {symbol}")
+            buffer_print(f"Skipping re-entry order for non-futures symbol: {symbol}")
             return
 
         # Fetch balance once
@@ -318,7 +406,7 @@ def reEnterTrade(exchange, symbol, order_side, order_price, order_amount, order_
         estimated_cost = order_amount * order_price
 
         # if usdt_balance < estimated_cost:
-        #     thread_safe_print(f"⚠️ Insufficient USDT balance ({usdt_balance}) for order cost ({estimated_cost}). Skipping order.")
+        #     buffer_print(f"⚠️ Insufficient USDT balance ({usdt_balance}) for order cost ({estimated_cost}). Skipping order.")
         #     return
 
         # First attempt: without posSide (works in one-way mode)
@@ -332,18 +420,19 @@ def reEnterTrade(exchange, symbol, order_side, order_price, order_amount, order_
                 'reduceOnly': False
             }
         )
-        thread_safe_print(f"✅ Re-entry order placed: {order_side} {order_amount} @ {order_price}")
+        buffer_print(f"✅ Re-entry order placed: {order_side} {order_amount} @ {order_price}")
+        return True
 
     except ccxt.BaseError as e:
         error_msg = str(e)
         # Handle specific phemex error for pilot contract
         if 'Pilot contract is not allowed here' in error_msg:
-            thread_safe_print(f"❌ Phemex error: Pilot contract is not allowed for {symbol}. Skipping order.")
+            buffer_print(f"❌ Phemex error: Pilot contract is not allowed for {symbol}. Skipping order.")
             return
 
         # If failed due to position mode, retry with posSide
         if 'TE_ERR_INCONSISTENT_POS_MODE' in error_msg:
-            thread_safe_print("🔁 Retrying with (Limit) posSide due to inconsistent position mode...")
+            buffer_print("🔁 Retrying with (Limit) posSide due to inconsistent position mode...")
             pos_side = 'Long' if order_side == 'buy' else 'Short'
             try:
                 order = exchange.create_order(
@@ -357,11 +446,14 @@ def reEnterTrade(exchange, symbol, order_side, order_price, order_amount, order_
                         'posSide': pos_side
                     }
                 )
-                thread_safe_print(f"✅ Re-entry Limit order (with posSide) placed: {order_side} {order_amount} @ {order_price}")
+                buffer_print(f"✅ Re-entry Limit order (with posSide) placed: {order_side} {order_amount} @ {order_price}")
+                return True
             except ccxt.BaseError as e2:
-                thread_safe_print(f"❌ Re-entry Limit order failed even with posSide: {e2}")
+                buffer_print(f"❌ Re-entry Limit order failed even with posSide: {e2}")
+                return False
         else:
-            thread_safe_print(f"❌ Error placing re-entry Limit order: {e}")
+            buffer_print(f"❌ Error placing re-entry Limit order: {e}")
+            return False
 
 def cancel_orphan_orders(exchange, symbol, side, order_type='limit'):
     """
@@ -387,28 +479,28 @@ def cancel_orphan_orders(exchange, symbol, side, order_type='limit'):
             if order_side != side.lower():
                 continue  # Only cancel orders matching the passed-in side
 
-            thread_safe_print(f"❌ Cancelling {order_side.upper()} {order_type.upper()} order for {symbol} (position closed)")
+            buffer_print(f"❌ Cancelling {order_side.upper()} {order_type.upper()} order for {symbol} (position closed)")
 
             try:
                 exchange.cancel_order(order['id'], symbol)
             except Exception as e:
                 if "TE_ERR_INCONSISTENT_POS_MODE" in str(e):
                     pos_side_str = "Long" if order_side == "buy" else "Short"
-                    thread_safe_print(f"🔁 Retrying cancel with posSide={pos_side_str}")
+                    buffer_print(f"🔁 Retrying cancel with posSide={pos_side_str}")
                     exchange.cancel_order(order['id'], symbol, {'posSide': pos_side_str})
                 else:
-                    thread_safe_print(f"⚠️ Error cancelling order: {e}")
+                    buffer_print(f"⚠️ Error cancelling order: {e}")
 
     except Exception as e:
-        thread_safe_print(f"❌ Global error in cancel_orphan_orders: {e}")
+        buffer_print(f"❌ Global error in cancel_orphan_orders: {e}")
 
 
 
-def monitor_position_and_reenter(exchange, symbol, position, verbose=False, multiplier= 1.5):
+def monitor_position_and_reenter(exchange, trade_id, symbol, position, lv_size, re_entry_count, verbose=False, multiplier= 1.5):
     try:
         if not position:
             if verbose:
-                thread_safe_print(f"No open position for {symbol}.")
+                buffer_print(f"No open position for {symbol}.")
             return
 
         # Extract critical values safely
@@ -434,7 +526,7 @@ def monitor_position_and_reenter(exchange, symbol, position, verbose=False, mult
         closeness = 1 - (distance_current / distance_total) if distance_total else 0
 
         if verbose:
-            thread_safe_print(f"[{symbol}] Side: {side}, Entry: {entry_price}, Mark: {mark_price}, "
+            buffer_print(f"[{symbol}] Side: {side}, Entry: {entry_price}, Mark: {mark_price}, "
                   f"Liquidation: {liquidation_price}, Closeness: {closeness*100:.1f}%")
 
         # Avoid re-entering if a same-side limit order already exists
@@ -442,52 +534,79 @@ def monitor_position_and_reenter(exchange, symbol, position, verbose=False, mult
         same_side = 'buy' if side == 'long' else 'sell'
         if any(o['type'] == 'limit' and o['side'] == same_side for o in open_orders):
             if verbose:
-                thread_safe_print(f"[{symbol}] Same-side limit order exists. Skipping re-entry.")
+                buffer_print(f"[{symbol}] Same-side limit order exists. Skipping re-entry.")
             return
 
         # Prepare re-entry order
         order_side = 'sell' if side == 'short' else 'buy'
         trigger_price = calculateLiquidationTargPrice(entry_price, liquidation_price, 0.2, price_sig_digits)
+        
+        # Re-entry thresholds
+        RE_FIRST_STOP = 3
+        RE_SECOND_STOP = 6
+        RE_THIRD_STOP = 8  # typo fixed from "THRID"
+
+        # Determine re-entry size
+        if re_entry_count < RE_FIRST_STOP:
+            re_entry_size = contracts
+        elif RE_FIRST_STOP <= re_entry_count < RE_SECOND_STOP:
+            re_entry_size = contracts / 2
+        elif RE_SECOND_STOP <= re_entry_count < RE_THIRD_STOP:
+            re_entry_size = contracts / 3
+        else:
+            re_entry_size = contracts / 4
+            
+        if verbose:
+            print(f"🔁 Re-entry Size: {re_entry_size:.2f} (Count: {re_entry_count})")
 
         # Double the notional for re-entry
         order_amount = round_to_sig_figs(((notional / leverage) * multiplier) / mark_price, amount_sig_digits)
 
         if verbose:
-            thread_safe_print(f"[{symbol}] Re-entry Trigger: {trigger_price}, Amount: {order_amount}")
+            buffer_print(f"[{symbol}] Re-entry Trigger: {trigger_price}, Amount: {order_amount}")
 
-        reEnterTrade(exchange, symbol, order_side, trigger_price, contracts, 'limit')
+        if safe_reEnterTrade(exchange, symbol, order_side, trigger_price, re_entry_size, 'limit'):
+            if verbose:
+                buffer_print(f"✅✅✅ Re-entered for {symbol} ✅✅✅")
+            rentery_update = update_row(
+                table_name = 'opn_trade',
+                updates = {
+                    'lv_size': re_entry_size,
+                    're_entry_count': re_entry_count+1
+                },
+                conditions = {'id': ('=', trade_id),'symbol': symbol})
         # Only re-enter if closeness is critical
         if closeness >= 0.8:
             if verbose:
-                thread_safe_print(f"⚠️ Re-entry trigger initiated for {symbol}.")
+                buffer_print(f"⚠️ Re-entry trigger initiated for {symbol}.")
         else:
             if verbose:
-                thread_safe_print(f"✅ Not close enough for re-entry on {symbol}.")
+                buffer_print(f"✅ Not close enough for re-entry on {symbol}.")
 
     except ccxt.ExchangeError as e:
-        thread_safe_print(f"Exchange error for {symbol}: {e}")
+        buffer_print(f"Exchange error for {symbol}: {e}")
     except KeyError as ke:
-        thread_safe_print(f"Missing key in {symbol} position data: {ke}")
+        buffer_print(f"Missing key in {symbol} position data: {ke}")
     except Exception as e:
-        thread_safe_print(f"Unexpected error in monitor_position_and_reenter for {symbol}: {e}")
+        buffer_print(f"Unexpected error in monitor_position_and_reenter for {symbol}: {e}")
 
 def cancel_existing_stop_order(exchange, symbol, order_id, side):
     try:
         cancel_order = exchange.cancel_order(order_id, symbol=symbol)
-        thread_safe_print(f"❌ Canceled previous stop-loss {order_id} (one-way) symol[{symbol}]")
+        buffer_print(f"❌ Canceled previous stop-loss {order_id} (one-way) symol[{symbol}]")
         return True
     except Exception as e:
         if "TE_ERR_INCONSISTENT_POS_MODE" in str(e):
             try:
                 params = {'posSide': 'Long' if side == 'long' else 'Short'}
                 cancel_order = exchange.cancel_order(order_id, symbol=symbol, params=params)
-                thread_safe_print(f"❌ Canceled stop-loss {order_id} (with posSide) symol[{symbol}]")
+                buffer_print(f"❌ Canceled stop-loss {order_id} (with posSide) symol[{symbol}]")
                 return True
             except Exception as e2:
-                thread_safe_print(f"⚠️ Still failed with posSide symol[{symbol}]: {e2}")
+                buffer_print(f"⚠️ Still failed with posSide symol[{symbol}]: {e2}")
                 return False
         else:
-            thread_safe_print(f"⚠️ Cancel failed: {e}")
+            buffer_print(f"⚠️ Cancel failed: {e}")
             return False
 
         # if cancel_order:
@@ -514,10 +633,10 @@ def create_stop_order(exchange, symbol, side, contracts, new_stop_price):
             price=None,
             params={**params_common, 'positionIdx': 1 if side == 'long' else 2, 'posSide': 'Long' if side == 'long' else 'Short'}
         )
-        thread_safe_print(f"✅ Stop-loss set at {new_stop_price:.4f} (hedge mode)")
+        buffer_print(f"✅ Stop-loss set at {new_stop_price:.4f} (hedge mode)")
         return order
     except Exception as e:
-        thread_safe_print(f"⚠️ Hedge mode failed: {e}")
+        buffer_print(f"⚠️ Hedge mode failed: {e}")
 
     # Fallback to one-way mode
     try:
@@ -529,10 +648,10 @@ def create_stop_order(exchange, symbol, side, contracts, new_stop_price):
             price=None,
             params=params_common
         )
-        thread_safe_print(f"✅ Stop-loss set at {new_stop_price:.4f} (one-way mode)")
+        buffer_print(f"✅ Stop-loss set at {new_stop_price:.4f} (one-way mode)")
         return order
     except Exception as e2:
-        thread_safe_print(f"❌ Both order attempts failed: {e2}")
+        buffer_print(f"❌ Both order attempts failed: {e2}")
         return None
 
 def set_phemex_leverage(exchange, symbol, leverage=None, long_leverage=None, short_leverage=None, side=None):
@@ -565,7 +684,7 @@ def set_phemex_leverage(exchange, symbol, leverage=None, long_leverage=None, sho
     except Exception as e:
         print(f"⚠️ Could not set leverage: {e}")
 
-def trailing_stop_logic(exchange, position, trade_id, trade_order_id, trail_order_id, trail_theshold, profit_target_distance, breath_stop, breath_threshold):
+def trailing_stop_logic(exchange, position, user_id, trade_id, trade_order_id, trail_order_id, trail_theshold, profit_target_distance, breath_stop, breath_threshold):
     symbol = position.get('symbol')
     entry_price = float(position.get('entryPrice') or 0)
     mark_price = float(position.get('markPrice') or 0)
@@ -576,7 +695,7 @@ def trailing_stop_logic(exchange, position, trade_id, trade_order_id, trail_orde
     leverageDefault = 5
     contracts = float(position.get('contracts') or 0)
     margin_mode = position.get('marginMode') or position['info'].get('marginType')
-
+    set_thread_context(user_id, symbol)
     if not entry_price or not mark_price or side not in ['long', 'short'] or contracts <= 0:
         return
     if margin_mode != "isolated":
@@ -601,9 +720,10 @@ def trailing_stop_logic(exchange, position, trade_id, trade_order_id, trail_orde
     unrealized_pnl = (mark_price - entry_price) * contracts if side == 'long' else (entry_price - mark_price) * contracts
     realized_pnl = float(position["info"].get('curTermRealisedPnlRv') or 0)
     total_pnl = unrealized_pnl + realized_pnl
+    
 
-    thread_safe_print(f"\n📈💰 {symbol} ({side.upper()}) | Leverage: {leverage} | Contract(Amount): {contracts} | MarginMode: {margin_mode}")
-    thread_safe_print(f"Profit-Distance: {profit_distance}, PNL → Unrealized: {unrealized_pnl:.4f}, Realized: {realized_pnl:.4f}, Total: {total_pnl:.4f}")
+    buffer_print(f"\n📈💰 {symbol} ({side.upper()}) | Leverage: {leverage} | Contract(Amount): {contracts} | MarginMode: {margin_mode}")
+    buffer_print(f"Profit-Distance: {profit_distance}, PNL → Unrealized: {unrealized_pnl:.4f}, Realized: {realized_pnl:.4f}, Total: {total_pnl:.4f}")
 
     if total_pnl <= 0.01:
         if trail_order_id:
@@ -638,7 +758,7 @@ def trailing_stop_logic(exchange, position, trade_id, trade_order_id, trail_orde
     if profit_distance >= trail_theshold:
         new_stop_price = entry_price * (1 + profit_target_distance / leverage) if side == 'long' else entry_price * (1 - profit_target_distance / leverage)
         if (side == 'long' and new_stop_price <= entry_price) or (side == 'short' and new_stop_price >= entry_price):
-            thread_safe_print(f"❌ Invalid stop-loss price {new_stop_price:.4f} vs entry {entry_price}")
+            buffer_print(f"❌ Invalid stop-loss price {new_stop_price:.4f} vs entry {entry_price}")
             return
 
         if trail_order_id:
@@ -710,7 +830,7 @@ def mark_trade_signal_closed_if_position_closed(exchange, symbol, trade_order_id
         })
 
         if backup_trade_final:
-            thread_safe_print(f"🔄 Symbol {symbol} [{side.upper()}] closed. Marked trade_signal ID {trade_id} as status=0.")
+            buffer_print(f"🔄 Symbol {symbol} [{side.upper()}] closed. Marked trade_signal ID {trade_id} as status=0.")
             cancel_orphan_orders(exchange, symbol, side, 'limit')
             is_deleted = delete_row(
                 table_name='opn_trade',
@@ -721,17 +841,17 @@ def mark_trade_signal_closed_if_position_closed(exchange, symbol, trade_order_id
             else:
                 print(f"⚠️ Trade: {trade_order_id} deleted.")
         else:
-            thread_safe_print(f"An Error occured while for {symbol} [{side.upper()}]. Marked trade_signal ID {trade_id} as status=0")
-            thread_safe_print(f"Retrying [Deleting trade {trade_order_id}]....")
+            buffer_print(f"An Error occured while for {symbol} [{side.upper()}]. Marked trade_signal ID {trade_id} as status=0")
+            buffer_print(f"Retrying [Deleting trade {trade_order_id}]....")
             cancel_orphan_orders(exchange, symbol, side, 'limit')
             is_deleted = delete_row(
                 table_name='opn_trade',
                 conditions={'id': trade_id}
             )
             if is_deleted:
-                 thread_safe_print(f"✅ Trade: {trade_order_id} deleted.")
+                 buffer_print(f"✅ Trade: {trade_order_id} deleted.")
             else:
-                thread_safe_print(f"⚠️ Trade: {trade_order_id} deleted.")
+                buffer_print(f"⚠️ Trade: {trade_order_id} deleted.")
                 
 def fetch_open_usdt_positions(exchange):
     try:
@@ -833,55 +953,38 @@ def sync_open_orders_to_db(exchange, user_id):
 def process_single_position(exchange, pos, signal_map, positionst):
     symbol = pos['symbol']
     row = signal_map.get(symbol, {})
-
     # Default fallbacks if values are missing
+    user_id = row.get('user_cred_id')
     trade_id = row.get('id')
     trade_order_id = row.get('order_id')
     trail_order_id = row.get('trail_order_id')
+    trade_live_size = row.get('lv_size')
     trail_thresh = float(row.get('trail_threshold', 0.10))
     trail_profit_distance = float(row.get('profit_target_distance', 0.06))
     side_int = row.get('trade_type')
     trade_done = row.get('trade_done')
+    trade_reentry_count = row.get('re_entry_count')
     status = row.get('status')
-
     side = 'buy' if side_int == 0 else 'sell' if side_int == 1 else None
-
     try:
-        with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
-            futures = []
-            if pos.get('contracts', 0) > 0:
-                futures.append(executor.submit(
-                    trailing_stop_logic, exchange, pos, trade_id, trade_order_id,
-                    trail_order_id, trail_thresh, trail_profit_distance, 0.10, 0.10
-                ))
-                futures.append(executor.submit(
-                    monitor_position_and_reenter, exchange, symbol, pos, True
-                ))
-            else:
-                futures.append(executor.submit(
-                    mark_trade_signal_closed_if_position_closed,
-                    exchange, symbol, trade_order_id, trade_id, side, positionst
-                ))
-
-            # Wait for all tasks to finish and catch exceptions
-            for future in concurrent.futures.as_completed(futures):
-                try:
-                    future.result()
-                    time.sleep(1)  # short pause to prevent busy loop
-                except Exception as e:
-                    thread_safe_print(f"❌ Error in async task for symbol {symbol}: {e}")
-                    traceback.print_exc()
-        thread_safe_print(f"--------------🙌 Position processed for {symbol} 🙌---------------")
+        if pos.get('contracts', 0) > 0:
+            trailing_stop_logic(exchange, pos, user_id, trade_id, trade_order_id,
+            trail_order_id, trail_thresh, trail_profit_distance, 0.10, 0.10)
+            monitor_position_and_reenter(exchange, trade_id, symbol, pos, trade_live_size, trade_reentry_count, True)
+        else:
+            mark_trade_signal_closed_if_position_closed(exchange, symbol, trade_order_id, trade_id, side, positionst)
+        buffer_print(f"--------------🙌 Position processed for {symbol} 🙌---------------")
+        flush_symbol_buffer()
     except Exception as e:
-        thread_safe_print(f"❌ Error processing position for symbol {symbol}: {e}")
+        buffer_print(f"❌ Error processing position for symbol {symbol}: {e}")
         traceback.print_exc()
+
 
 def main_job(exchange, user_cred_id, verify):
     try:
         trade_signals = fetch_trade_signals(user_cred_id=user_cred_id, status=1)
-
         if not trade_signals:
-            thread_safe_print(f"[{exchange.apiKey[:6]}...] ⚠️ No trade signals found.")
+            buffer_print(f"[{exchange.apiKey[:6]}...] ⚠️ No trade signals found.")
             return
 
         signal_map = {row['symbol']: row for row in trade_signals}
@@ -889,45 +992,92 @@ def main_job(exchange, user_cred_id, verify):
 
         positionst = exchange.fetch_positions(symbols=symbols)
         usdt_balances = exchange.fetch_balance({'type': 'swap'}).get('USDT', {})
-        usdt_balance_free = usdt_balances.get('free', 0)
-        usdt_balance_total = usdt_balances.get('total', 0)
-        thread_safe_print(f"[{exchange.apiKey[:6]}...] USDT Balance->Free: {usdt_balance_free}")
-        thread_safe_print(f"[{exchange.apiKey[:6]}...] USDT Balance->Total: {usdt_balance_total}")
+        buffer_print(f"[{exchange.apiKey[:6]}...] USDT Balance->Free: {usdt_balances.get('free', 0)}")
+        buffer_print(f"[{exchange.apiKey[:6]}...] USDT Balance->Total: {usdt_balances.get('total', 0)}")
 
-        # Use ThreadPoolExecutor to process all positions concurrently
-        with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
-            futures = [
-                executor.submit(process_single_position, exchange, pos, signal_map, positionst)
-                for pos in positionst
-            ]
+        for pos in positionst:
+            if stop_event.is_set():
+                buffer_print(f"Stop event set, exiting main_job early for {exchange.apiKey[:6]}...")
+                return
+            symbol = pos['symbol']
+            thread_key = f"{exchange.apiKey}_{symbol}"
 
-            for future in concurrent.futures.as_completed(futures):
-                try:
-                    future.result()
-                except Exception as e:
-                    thread_safe_print(f"❌ Error in processing a position in main_job: {e}")
-                    traceback.print_exc()
+            # Use a lock per symbol per account
+            with symbol_locks_lock:
+                if thread_key not in symbol_locks:
+                    symbol_locks[thread_key] = threading.Lock()
 
-    except Exception:
-        thread_safe_print(f"❌ Error for exchange [{exchange.apiKey[:6]}...]:")
+            def run_symbol_thread(pos=pos, symbol=symbol, thread_key=thread_key):
+                lock = symbol_locks[thread_key]
+                if lock.locked():
+                    buffer_print(f"🔁 Waiting for lock on {symbol} — already being processed.")
+                    return  # Thread already handling this symbol
+
+                def locked_runner():
+                    with lock:
+                        try:
+                            process_single_position(exchange, pos, signal_map, positionst)
+                        except Exception as e:
+                            buffer_print(f"❌ Error processing position for symbol {symbol}: {e}")
+                            traceback.print_exc()
+                        finally:
+                            buffer_print(f"✅ Thread cleanup done for {symbol}")
+
+                threading.Thread(target=locked_runner, daemon=False).start()
+
+            run_symbol_thread()
+            time.sleep(0.2)  # small throttle
+    except Exception as e:
+        buffer_print(f"❌ Error in main_job for [{exchange.apiKey[:6]}...]: {e}")
         traceback.print_exc()
-    
+        
+account_locks = {}
 def run_exchanges_in_batch(batch):
-    # clear_table = truncate_table("opn_trade")
     while not stop_event.is_set():
-        for item in batch:
-            if len(item) != 3:
-                thread_safe_print(f"⚠️ Unexpected tuple size: {item}")
-                continue
-            exchange_obj, user_cred_id, verify = item
-            try:
-                # Run main job synchronously (quick, non-blocking)
-                main_job(exchange=exchange_obj, user_cred_id=user_cred_id, verify=verify)
-            except Exception:
-                thread_safe_print(f"❌ Error in main_job for user {user_cred_id}")
-                traceback.print_exc()
+        try:
+            with concurrent.futures.ThreadPoolExecutor(max_workers=len(batch)) as executor:
+                futures = []
+                for item in batch:
+                    if len(item) != 3:
+                        buffer_print(f"⚠️ Unexpected tuple size: {item}")
+                        continue
 
-        time.sleep(3)  # short pause to prevent busy loop
+                    exchange_obj, user_cred_id, verify = item
+
+                    if user_cred_id not in account_locks:
+                        account_locks[user_cred_id] = Lock()
+
+                    def locked_main_job(exchange_obj=exchange_obj, user_cred_id=user_cred_id, verify=verify):
+                        if stop_event.is_set():
+                            return
+                        with account_locks[user_cred_id]:
+                            if not stop_event.is_set():
+                                main_job(exchange_obj, user_cred_id, verify)
+
+                    futures.append(executor.submit(locked_main_job))
+
+                for future in concurrent.futures.as_completed(futures):
+                    if stop_event.is_set():
+                        break
+                    try:
+                        result = future.result()
+                        print(f"Task completed with result: {result}")
+                    except Exception as e:
+                        buffer_print(f"❌ Error in batch task: {e}")
+                        traceback.print_exc()
+
+        except KeyboardInterrupt:
+            buffer_print("🛑 KeyboardInterrupt received in run_exchanges_in_batch, stopping...")
+            stop_event.set()
+            break
+        except Exception as e:
+            buffer_print(f"❌ Unexpected exception in batch: {e}")
+            traceback.print_exc()
+
+        print("Batch iteration complete, sleeping 0.8s")
+        if not stop_event.is_set():
+            time.sleep(0.8)
+
 
 
 def sync_open_orders_loop_batch(batch):
@@ -948,57 +1098,116 @@ def sync_open_orders_loop_batch(batch):
         time.sleep(min(2, cooldown_seconds / 2))  # e.g. 2 seconds
 
 
-def run_all():
-    credentials = get_all_credentials_with_exchange_info()  # JOINed data
-    if not credentials:
-        thread_safe_print("⚠️ No API credentials found in the database. Exiting...")
-        return
-
-    exchange_list = []
-    for row in credentials:
+active_cred_ids = set()
+exchange_list = []  # global list of (exchange, cred_id, verify) tuples
+def monitor_new_credentials():
+    global exchange_list
+    while not stop_event.is_set():
         try:
-            exchange_name = row['exchange_name']
-            requires_password = row['requirePass']
-            password = row['password'] if requires_password != 0 else None
-            verify = row['api_key'][:6]
-            exchange = create_exchange(exchange_name, row['api_key'], row['secret'], password)
-             # ✅ Preload markets to reduce per-thread overhead
-            exchange.load_markets()
-            exchange.options['warnOnFetchOpenOrdersWithoutSymbol'] = False
-            exchange_list.append((exchange, row['cred_id'], verify))
+            credentials = get_all_credentials_with_exchange_info()
+            # print("Cred: ", credentials)
+            new_accounts = []
+            
+            for row in credentials:
+                cred_id = row['cred_id']
+                if cred_id in active_cred_ids:
+                    continue
+                
+                try:
+                    # print("Checking cred_id:", cred_id, "Already active:", cred_id in active_cred_ids)
+                    exchange_name = row['exchange_name']
+                    requires_password = row['requirePass']
+                    password = row['password'] if requires_password != 0 else None
+                    verify = row['api_key'][:6]
+                    print(f"🔧 Creating exchange for [{verify}...]")
+                    exchange = create_exchange(exchange_name, row['api_key'], row['secret'], password)
+                    print(f"🔧 Creating exchange for [{exchange}...]")
+                    exchange.load_markets()
+                    exchange.options['warnOnFetchOpenOrdersWithoutSymbol'] = False
+
+                    active_cred_ids.add(cred_id)
+                    new_accounts.append((exchange, cred_id, verify))
+                    buffer_print(f"🟢 Detected new account [{verify}...]")
+                except Exception as e:
+                    buffer_print(f"❌ Failed to initialize new exchange [{row['api_key'][:6]}...]: {e}")
+
+            if new_accounts:
+                exchange_list.extend(new_accounts)
+                print("New Account added to 'account list'")
+
+            # You can optionally detect removed accounts here and remove them from active_cred_ids & exchange_list
+
         except Exception as e:
-            print(row)
-            thread_safe_print(f"❌ Failed to create exchange for API key {row['api_key'][:6]}...: {e}")
+            buffer_print(f"❌ Error during dynamic exchange scan: {e}")
+            
+        # Check stop_event here to allow early exit
+        if stop_event.is_set():
+            buffer_print("🛑 monitor_new_credentials stopping as stop_event is set.")
+            break
 
-    if not exchange_list:
-        thread_safe_print("⚠️ No valid exchanges could be created. Exiting...")
-        return
+        stop_event.wait(timeout=1)
 
-    total = len(exchange_list)
-    batch_size = max(1, int(math.sqrt(total)))  # √N batching for load balancing
-    thread_safe_print(f"Total Accounts: {total}, Batch size: {batch_size}")
-
-    batches = [exchange_list[i:i + batch_size] for i in range(0, total, batch_size)]
-
-    threads = []
-    for batch in batches:
-        # Start main job thread for batch
-        t = threading.Thread(target=run_exchanges_in_batch, args=(batch,), daemon=True)
-        t.start()
-        threads.append(t)
-
-        # Start one sync thread per batch, handling all exchange-users in it
-        sync_t = threading.Thread(target=sync_open_orders_loop_batch, args=(batch,), daemon=True)
-        sync_t.start()
-        threads.append(sync_t)
-
+def run_all():
     try:
+        buffer_print("🚀 Bot started. Watching for new exchanges...")
+        # Start monitor thread
+        monitor_thread = threading.Thread(target=monitor_new_credentials, daemon=False)
+        monitor_thread.start()
         while True:
-            time.sleep(0.8)
+            if stop_event.is_set():
+                break
+            total = len(exchange_list)
+            if total == 0:
+                time.sleep(1)
+                continue
+
+            batch_size = max(1, int(math.sqrt(total)))  # your batch logic
+            batches = [exchange_list[i:i + batch_size] for i in range(0, total, batch_size)]
+
+            # Dynamic max_workers based on total accounts (limit max to avoid overload)
+            max_workers = min(total * 2, 100)  # max 100 threads as safety cap
+
+            with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+                futures = []
+
+                try:
+                    # Submit batch jobs
+                    for batch in batches:
+                        print("Gotten here")
+                        futures.append(executor.submit(run_exchanges_in_batch, batch))
+                        futures.append(executor.submit(sync_open_orders_loop_batch, batch))
+
+                    while not stop_event.is_set():
+                        done, not_done = concurrent.futures.wait(futures, timeout=1)
+                        # Optionally check status or requeue finished ones
+
+                except KeyboardInterrupt:
+                    print("🛑 Ctrl+C caught. Setting stop_event...")
+                    stop_event.set()
+
+                    # Attempt to cancel remaining futures (if they haven't started yet)
+                    for future in futures:
+                        future.cancel()
+
+                finally:
+                    print("🔄 Waiting for tasks to exit...")
+                    concurrent.futures.wait(futures)  # Block until all exit
+                    print("✅ All batch jobs stopped.")
+
+                # Futures still running will be stopped in next loop iteration via stop_event if set
+
+            time.sleep(1)  # slight pause before recomputing batches and re-submitting  
     except KeyboardInterrupt:
-        thread_safe_print("\n🛑 Ctrl+C detected. Stopping all threads...")
+        buffer_print("\n🛑 Ctrl+C detected in run_all. Setting stop_event...")
         stop_event.set()
-        time.sleep(2)
 
 if __name__ == "__main__":
-    run_all()
+    try:
+        run_all()
+    except KeyboardInterrupt:
+        buffer_print("\n🛑 Ctrl+C detected in main. Stopping all threads...")
+        stop_event.set()
+        time.sleep(2)
+    finally:
+        buffer_print("🔚 Program exited cleanly.")
+        os._exit(0)  # Force-exit all threads if still hanging
