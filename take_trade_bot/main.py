@@ -317,12 +317,12 @@ def get_open_position_counts(exchange, all_symbols):
 
 def issueNumberOfTrade(acc_bal):
     thresholds = [
-        (10000, 20),
-        (5000, 17),
-        (1000, 15),
-        (500, 12),
-        (150, 10),
-        (0, 8)
+        (10000, 5),
+        (5000, 5),
+        (1000, 5),
+        (500, 5),
+        (150, 5),
+        (0, 5)
     ]
     
     for limit, trades in thresholds:
@@ -331,7 +331,7 @@ def issueNumberOfTrade(acc_bal):
 
     
 
-def calculateIntialAmount(account_balance, leverage= 5, divider= 7.0):
+def calculateIntialAmount(account_balance, leverage= 5, divider= 5.0):
     MAX_NUMBER_TRADE = issueNumberOfTrade(account_balance)
     FIRST_ENTRY = round_to_sig_figs((account_balance / divider), 2)
     FIRST_ENTRY_PER_TRADE = round_to_sig_figs((FIRST_ENTRY / MAX_NUMBER_TRADE), 2)
@@ -346,7 +346,7 @@ def check_equity_usage(balance):
 
 # Trading parameters
 leverage = 5
-multiplier= 2
+multiplier= 1.5
 fromPercnt = 0.2  #20%
 
 def calculateLiquidationTargPrice(_liqprice, _entryprice, _percnt, _round):
@@ -507,7 +507,7 @@ def main_job(exchange, user_cred_id, token, verify):
         symbol = signal['symbol_pair']
         side = signal['trade_type']
         trail_thresh = 0.10 # 10% default
-        profit_target_distance = 0.06 # 60% default
+        profit_target_distance = 0.08 # 60% default
 
         usdt_balances = exchange.fetch_balance({'type': 'swap'}).get('USDT', {})
         usdt_balance_free = usdt_balances.get('free', 0)
@@ -515,40 +515,44 @@ def main_job(exchange, user_cred_id, token, verify):
         
         if check_equity_usage(usdt_balances):
             return
+        
         time.sleep(2)
-        MAX_NO_SELL_TRADE = issueNumberOfTrade(usdt_balance_total)
+        MAX_NO_SELL_TRADE = issueNumberOfTrade(usdt_balance_total) + 3
         MAX_NO_BUY_TRADE = 2
 
 
         position_count = get_side_count(user_cred_id, 0, side)
         # print("Position Count: ", position_count)
+        
         if (side == 0 and position_count >= MAX_NO_BUY_TRADE):
             pass
             # print(f"❌ Max number of buy trades reached ({position_count})!")
         elif (side == 1 and position_count >= MAX_NO_SELL_TRADE):
             pass
-            # print(f"❌ Max number of sell trades reached ({MAX_NO_SELL_TRADE})!")
+            # print(f"❌ Max number of sell trades reached ({position_count})!")
         else:
             if has_open_trade(user_cred_id, symbol):
-                print(f"Trade {symbol} already taken for {user_cred_id}")
+                print(f"⚠️ Trade {symbol} already taken for {user_cred_id}")
                 return
-            
+
             if has_open_position(exchange, symbol):
-              print(f"⚠️ Skipping {symbol} — already has an open position on exchange")
-              #reEnter Details here, for manual trades taken
-              return
-            
-            # Implement your trade logic here for this signal
+                print(f"⚠️ Skipping {symbol} — already has an open position on exchange")
+                return
+
+            # ✅ Proceed with trade execution
             thread_safe_print(f"✅ {verify if hasattr(exchange, 'id') else 'Exchange'} → Processing signal: {signal}")
-            side_n_str = "buy" if side == 0 else "sell" if side == 1 else None
+            
+            side_n_str = "buy" if side == 0 else "sell"
             usdt_amount = calculateIntialAmount(usdt_balance_total, leverage)
             
-            market_order_id, limit_order_id = place_entry_and_liquidation_limit_order(exchange, symbol, side_n_str, usdt_amount, leverage)
-    
+            market_order_id, limit_order_id = place_entry_and_liquidation_limit_order(
+                exchange, symbol, side_n_str, usdt_amount, leverage
+            )
+            
             base_amount = get_base_amount(exchange, symbol, usdt_amount)
             
             if market_order_id:
-                take_trade_data= {
+                take_trade_data = {
                     "user_cred_id": user_cred_id,
                     "trade_signal": trade_signal_id,
                     "order_id": market_order_id,
@@ -558,14 +562,14 @@ def main_job(exchange, user_cred_id, token, verify):
                     "leverage": leverage,
                     "trail_threshold": trail_thresh,
                     "profit_target_distance": profit_target_distance,
+                    "re_entry_count": 0,
                     "trade_done": 0,
                     "status": 1
                 }
                 
                 if insert_trade_signal(take_trade_data):
-                    # SEND BACKUP DATA TO MEDICTREAT.COM
-                    print("Token: ", token)
-                    backup_trade_data= {
+                    print("📤 Sending backup trade data...")
+                    backup_trade_data = {
                         "token": token,
                         "user_id": user_cred_id,
                         "order_id": market_order_id,
@@ -579,6 +583,7 @@ def main_job(exchange, user_cred_id, token, verify):
                         "status": 1
                     }
                     save_trade_history(backup_trade_data)
+
            
 
         # Your trading execution logic (currently commented out)
