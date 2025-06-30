@@ -449,10 +449,10 @@ def reEnterTrade(exchange, symbol, order_side, order_price, order_amount, order_
                 buffer_print(f"✅ Re-entry Limit order (with posSide) placed: {order_side} {order_amount} @ {order_price} for {symbol}")
                 return True
             except ccxt.BaseError as e2:
-                buffer_print(f"❌ Re-entry Limit order failed even with posSide: {e2}")
+                #buffer_print(f"❌ Re-entry Limit order failed even with posSide: {e2}")
                 return False
         else:
-            buffer_print(f"❌ Error placing re-entry Limit order: {e}")
+            #buffer_print(f"❌ Error placing re-entry Limit order: {e}")
             return False
 
 def cancel_orphan_orders(exchange, symbol, side, order_type='limit'):
@@ -534,7 +534,7 @@ def monitor_position_and_reenter(exchange, trade_id, symbol, position, lv_size, 
         same_side = 'buy' if side == 'long' else 'sell'
         if any(o['type'] == 'limit' and o['side'] == same_side for o in open_orders):
             if verbose:
-                buffer_print(f"[{symbol}] Same-side limit order exists. Skipping re-entry.")
+                #buffer_print(f"[{symbol}] Same-side limit order exists. Skipping re-entry.")
             return
 
         # Prepare re-entry order
@@ -971,7 +971,7 @@ def process_single_position(exchange, pos, signal_map, positionst):
         if pos.get('contracts', 0) > 0:
             trailing_stop_logic(exchange, pos, user_id, trade_id, trade_order_id,
             trail_order_id, trail_thresh, trail_profit_distance, 0.10, 0.10)
-            monitor_position_and_reenter(exchange, trade_id, symbol, pos, trade_live_size, trade_reentry_count, True)
+            monitor_position_and_reenter(exchange, trade_id, symbol, pos, trade_live_size, trade_reentry_count, False)
         else:
             mark_trade_signal_closed_if_position_closed(exchange, symbol, trade_order_id, trade_id, side, positionst)
         #buffer_print(f"--------------🙌 Position processed for {symbol} 🙌---------------")
