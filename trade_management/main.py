@@ -420,7 +420,7 @@ def reEnterTrade(exchange, symbol, order_side, order_price, order_amount, order_
                 'reduceOnly': False
             }
         )
-        buffer_print(f"✅ Re-entry order placed: {order_side} {order_amount} @ {order_price}")
+        buffer_print(f"✅ Re-entry order placed: {order_side} {order_amount} @ {order_price} for {symbol}")
         return True
 
     except ccxt.BaseError as e:
@@ -446,7 +446,7 @@ def reEnterTrade(exchange, symbol, order_side, order_price, order_amount, order_
                         'posSide': pos_side
                     }
                 )
-                buffer_print(f"✅ Re-entry Limit order (with posSide) placed: {order_side} {order_amount} @ {order_price}")
+                buffer_print(f"✅ Re-entry Limit order (with posSide) placed: {order_side} {order_amount} @ {order_price} for {symbol}")
                 return True
             except ccxt.BaseError as e2:
                 buffer_print(f"❌ Re-entry Limit order failed even with posSide: {e2}")
@@ -722,8 +722,8 @@ def trailing_stop_logic(exchange, position, user_id, trade_id, trade_order_id, t
     total_pnl = unrealized_pnl + realized_pnl
     
 
-    buffer_print(f"\n📈💰 {symbol} ({side.upper()}) | Leverage: {leverage} | Contract(Amount): {contracts} | MarginMode: {margin_mode}")
-    buffer_print(f"Profit-Distance: {profit_distance}, PNL → Unrealized: {unrealized_pnl:.4f}, Realized: {realized_pnl:.4f}, Total: {total_pnl:.4f}")
+    # buffer_print(f"\n📈💰 {symbol} ({side.upper()}) | Leverage: {leverage} | Contract(Amount): {contracts} | MarginMode: {margin_mode}")
+    # buffer_print(f"Profit-Distance: {profit_distance}, PNL → Unrealized: {unrealized_pnl:.4f}, Realized: {realized_pnl:.4f}, Total: {total_pnl:.4f}")
 
     if total_pnl <= 0.01:
         if trail_order_id:
@@ -974,7 +974,7 @@ def process_single_position(exchange, pos, signal_map, positionst):
             monitor_position_and_reenter(exchange, trade_id, symbol, pos, trade_live_size, trade_reentry_count, True)
         else:
             mark_trade_signal_closed_if_position_closed(exchange, symbol, trade_order_id, trade_id, side, positionst)
-        buffer_print(f"--------------🙌 Position processed for {symbol} 🙌---------------")
+        #buffer_print(f"--------------🙌 Position processed for {symbol} 🙌---------------")
         flush_symbol_buffer()
     except Exception as e:
         buffer_print(f"❌ Error processing position for symbol {symbol}: {e}")
@@ -993,8 +993,8 @@ def main_job(exchange, user_cred_id, verify):
 
         positionst = exchange.fetch_positions(symbols=symbols)
         usdt_balances = exchange.fetch_balance({'type': 'swap'}).get('USDT', {})
-        buffer_print(f"[{exchange.apiKey[:6]}...] USDT Balance->Free: {usdt_balances.get('free', 0)}")
-        buffer_print(f"[{exchange.apiKey[:6]}...] USDT Balance->Total: {usdt_balances.get('total', 0)}")
+        #buffer_print(f"[{exchange.apiKey[:6]}...] USDT Balance->Free: {usdt_balances.get('free', 0)}")
+        #buffer_print(f"[{exchange.apiKey[:6]}...] USDT Balance->Total: {usdt_balances.get('total', 0)}")
 
         for pos in positionst:
             if stop_event.is_set():
@@ -1011,7 +1011,7 @@ def main_job(exchange, user_cred_id, verify):
             def run_symbol_thread(pos=pos, symbol=symbol, thread_key=thread_key):
                 lock = symbol_locks[thread_key]
                 if lock.locked():
-                    buffer_print(f"🔁 Waiting for lock on {symbol} — already being processed.")
+                    #buffer_print(f"🔁 Waiting for lock on {symbol} — already being processed.")
                     return  # Thread already handling this symbol
 
                 def locked_runner():
@@ -1022,7 +1022,7 @@ def main_job(exchange, user_cred_id, verify):
                             buffer_print(f"❌ Error processing position for symbol {symbol}: {e}")
                             traceback.print_exc()
                         finally:
-                            buffer_print(f"✅ Thread cleanup done for {symbol}")
+                            #buffer_print(f"✅ Thread cleanup done for {symbol}")
 
                 threading.Thread(target=locked_runner, daemon=False).start()
 
@@ -1062,7 +1062,7 @@ def run_exchanges_in_batch(batch):
                         break
                     try:
                         result = future.result()
-                        print(f"Task completed with result: {result}")
+                        #print(f"Task completed with result: {result}")
                     except Exception as e:
                         buffer_print(f"❌ Error in batch task: {e}")
                         traceback.print_exc()
@@ -1075,7 +1075,7 @@ def run_exchanges_in_batch(batch):
             buffer_print(f"❌ Unexpected exception in batch: {e}")
             traceback.print_exc()
 
-        print("Batch iteration complete, sleeping 0.8s")
+        #print("Batch iteration complete, sleeping 0.8s")
         if not stop_event.is_set():
             time.sleep(0.8)
 
