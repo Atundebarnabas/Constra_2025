@@ -534,7 +534,7 @@ def monitor_position_and_reenter(exchange, trade_id, symbol, position, lv_size, 
         same_side = 'buy' if side == 'long' else 'sell'
         if any(o['type'] == 'limit' and o['side'] == same_side for o in open_orders):
             if verbose:
-                #buffer_print(f"[{symbol}] Same-side limit order exists. Skipping re-entry.")
+                buffer_print(f"[{symbol}] Same-side limit order exists. Skipping re-entry.")
             return
 
         # Prepare re-entry order
