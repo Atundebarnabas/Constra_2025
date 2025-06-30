@@ -767,6 +767,7 @@ def trailing_stop_logic(exchange, position, user_id, trade_id, trade_order_id, t
                 print(f"Removeing Old conditional🤗🤗: {symbol} -> {trail_order_id}")
                 
         order = create_stop_order(exchange, symbol, side, contracts, new_stop_price)
+        buffer_print(f"New StopPice for {symbol} @ {new_stop_price}")
         if order:
             new_trail_order_id = order['id']
             new_trail_theshold = trail_theshold + breath_threshold
