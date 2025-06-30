@@ -1022,6 +1022,7 @@ def main_job(exchange, user_cred_id, verify):
                             buffer_print(f"❌ Error processing position for symbol {symbol}: {e}")
                             traceback.print_exc()
                         finally:
+                            pass
                             #buffer_print(f"✅ Thread cleanup done for {symbol}")
 
                 threading.Thread(target=locked_runner, daemon=False).start()
