@@ -309,6 +309,7 @@ def create_exchange(exchange_name, api_key, secret, password=None):
             'secret': secret,
             'enableRateLimit': True,
             'options': {
+                'type': 'swap',
                 'defaultType': 'swap',
             },
         }
