@@ -596,6 +596,7 @@ def monitor_position_and_reenter(exchange, trade_id, symbol, position, lv_size, 
 
         # Adjust re-entry size according to amount precision
         re_entry_size = normalize_amount(raw_size, amount_precision)
+        buffer_print(f"Symbol: {symbol} Raw size: {raw_size}, Re entry_size:  {re_entry_size}")
         
         if verbose:
             buffer_print(f"[{symbol}] Side: {side}, Entry: {entry_price}, Mark: {mark_price}, "
