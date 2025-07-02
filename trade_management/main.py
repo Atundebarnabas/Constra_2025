@@ -706,7 +706,7 @@ def trailing_stop_logic(exchange, position, user_id, trade_id, trade_order_id, t
         elif pos_mode == 'hedged':
             set_phemex_leverage(exchange, symbol, long_leverage=leverageDefault, short_leverage=leverageDefault, side=sideNml)
 
-    if leverage > leverageDefault or leverage < 1:
+    if leverage > leverageDefault and leverage < 1:
         # Depending on mode, set leverage appropriately as above
         pos_mode = position['info'].get('posMode', '').lower()
         print(f"🛑🛑Symbol: [{symbol}] side: {sideRl}, posMode: {pos_mode} | posSide: {position['info'].get('posSide', '')}")
