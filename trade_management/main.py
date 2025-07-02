@@ -495,7 +495,7 @@ def update_rentry_count(trade_id, symbol, count):
         )
         if reset_reentry_count:
             buffer_print(f"✅✅ Symbol[{symbol}] re-entry count is reset to:: ", count)
-    except as Exception as e:
+    except Exception as e:
         print(f"An error occred wile trying to rese Re-entry--count, Error: ", {e})
 
 def cancel_orphan_orders(exchange, symbol, side, trade_id, re_entry_count, order_type='limit'):
