@@ -500,7 +500,7 @@ def main_job(exchange, user_cred_id, token, verify):
 
         signal = fetch_single_trade_signal()
         if not signal:
-            thread_safe_print("ℹ️ No active signals available.")
+            # thread_safe_print("ℹ️ No active signals available.")
             return
         
         trade_signal_id = signal['id']
