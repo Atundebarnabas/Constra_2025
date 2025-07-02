@@ -603,7 +603,7 @@ def monitor_position_and_reenter(exchange, trade_id, symbol, position, lv_size, 
                     buffer_print(f"[{symbol}] Limit order size {o['amount']} ≠ expected size ({re_entry_size}). Cancelling limit order.")
                 
                 # Cancel the mismatched order
-                cancel_orphan_orders(exchange, symbol, same_side, trade_id, re_entry_count-1 'limit')
+                cancel_orphan_orders(exchange, symbol, same_side, trade_id, re_entry_count-1, 'limit')
                 
                 # Update DB to allow re-entry again
                 if dn_allow_rentry == 1:
