@@ -52,10 +52,6 @@ symbol_locks_lock = threading.Lock()
 thread_context = threading.local()
 
 
-
-# Load once and reuse
-markets = exchange.load_markets()
-
 def ensure_user_cred_table_exists():
     create_table_sql = """
     CREATE TABLE IF NOT EXISTS user_cred (
@@ -731,7 +727,8 @@ def create_stop_order(exchange, symbol, side, contracts, new_stop_price):
         return None
     
 
-def get_min_leverage(symbol):
+def get_min_leverage(exchange, symbol):
+    markets = exchange.load_markets()
     market = markets.get(symbol)
     if market:
         return market.get("limits", {}).get("leverage", {}).get("min")
@@ -766,7 +763,7 @@ def set_phemex_leverage(exchange, trade_id, re_entry_count, symbol, leverage=Non
         print(f"Set leverage response: {response}")
     except Exception as e:
         if "TE_ERR_INVALID_LEVERAGE" in str(e):
-            minLevegrage = get_min_leverage(symbol)
+            minLevegrage = get_min_leverage(exchange, symbol)
             print("Retrying with minimum leverage: ", minLevegrage)
             if minLevegrage is None:
                 print("Min Leverage is None")
@@ -980,6 +977,7 @@ def sync_open_orders_to_db(exchange, user_id):
     Sync actual executed market orders (not pending limit/market) to DB for given user_id.
     """
     try:
+        markets = exchange.load_markets()
         # Check if this order already exists in DB
         conn = db_conn.get_connection()
         cursor = conn.cursor()
