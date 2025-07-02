@@ -366,6 +366,10 @@ def round_to_sig_figs(num, sig_figs):
         return 0
     return round(num, sig_figs - int(math.floor(math.log10(abs(num)))) - 1)
 
+def adjust_size_to_precision(size, precision):
+    # Floors size to nearest allowed precision increment
+    return math.floor(size / precision) * precision
+
 
 def calculateLiquidationTargPrice(_liqprice, _entryprice, _percnt, _round):
     return round_to_sig_figs(_entryprice + (_liqprice - _entryprice) * _percnt, _round)
