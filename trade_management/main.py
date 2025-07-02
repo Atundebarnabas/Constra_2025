@@ -565,6 +565,7 @@ def monitor_position_and_reenter(exchange, trade_id, symbol, position, lv_size, 
         price_sig_digits = count_sig_digits(precision['price'])
         amount_sig_digits = count_sig_digits(precision['amount'])
         amount_precision = precision['amount']
+        decimals = count_sig_digits(amount_precision)
 
         # Calculate proximity to liquidation
         distance_total = abs(entry_price - liquidation_price)
@@ -588,6 +589,7 @@ def monitor_position_and_reenter(exchange, trade_id, symbol, position, lv_size, 
 
         # Adjust re-entry size according to amount precision
         re_entry_size = adjust_size_to_precision(raw_size, amount_precision)
+        re_entry_size = round(re_entry_size, decimals)
         
         if verbose:
             buffer_print(f"[{symbol}] Side: {side}, Entry: {entry_price}, Mark: {mark_price}, "
