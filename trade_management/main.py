@@ -591,6 +591,7 @@ def monitor_position_and_reenter(exchange, trade_id, symbol, position, lv_size, 
             raw_size = contracts / 4
 
         # Adjust re-entry size according to amount precision
+        re_entry_size = adjust_size_to_precision(raw_size, amount_precision)
         re_entry_size = normalize_amount(re_entry_size, precision['amount'])
         
         if verbose:
