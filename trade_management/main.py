@@ -986,7 +986,7 @@ def main_job(exchange, user_cred_id, verify):
     try:
         trade_signals = fetch_trade_signals(user_cred_id=user_cred_id, status=1)
         if not trade_signals:
-            buffer_print(f"[{exchange.apiKey[:6]}...] ⚠️ No trade signals found.")
+            # buffer_print(f"[{exchange.apiKey[:6]}...] ⚠️ No trade signals found.")
             return
 
         signal_map = {row['symbol']: row for row in trade_signals}
