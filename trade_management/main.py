@@ -366,10 +366,13 @@ def round_to_sig_figs(num, sig_figs):
         return 0
     return round(num, sig_figs - int(math.floor(math.log10(abs(num)))) - 1)
 
+def normalize_amount(value, precision_step):
+    scale = 1 / precision_step
+    return int(value * scale) * precision_step
+
 def adjust_size_to_precision(size, precision):
     # Floors size to nearest allowed precision increment
     return math.floor(size / precision) * precision
-
 
 def calculateLiquidationTargPrice(_liqprice, _entryprice, _percnt, _round):
     return round_to_sig_figs(_entryprice + (_liqprice - _entryprice) * _percnt, _round)
@@ -588,8 +591,7 @@ def monitor_position_and_reenter(exchange, trade_id, symbol, position, lv_size, 
             raw_size = contracts / 4
 
         # Adjust re-entry size according to amount precision
-        re_entry_size = adjust_size_to_precision(raw_size, amount_precision)
-        re_entry_size = round(re_entry_size, decimals)
+        re_entry_size = normalize_amount(re_entry_size, precision['amount'])
         
         if verbose:
             buffer_print(f"[{symbol}] Side: {side}, Entry: {entry_price}, Mark: {mark_price}, "
