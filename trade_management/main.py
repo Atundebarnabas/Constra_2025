@@ -684,7 +684,7 @@ def set_phemex_leverage(exchange, symbol, leverage=None, long_leverage=None, sho
     except Exception as e:
         print(f"⚠️ Could not set leverage: {e}")
         leverageDef = 3;
-        if leverage is not None:
+        if leverageDef is not None:
             params['leverageRr'] = str(leverageDef)
         response = exchange.fetch2(path, 'private', method, params)
         if response:
