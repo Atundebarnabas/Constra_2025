@@ -1180,7 +1180,7 @@ def run_exchanges_in_batch(batch):
                         break
                     try:
                         result = future.result()
-                        print(f"Task completed with result: {result}")
+                        # print(f"Task completed with result: {result}")
                     except Exception as e:
                         buffer_print(f"❌ Error in batch task: {e}")
                         traceback.print_exc()
@@ -1193,7 +1193,7 @@ def run_exchanges_in_batch(batch):
             buffer_print(f"❌ Unexpected exception in batch: {e}")
             traceback.print_exc()
 
-        print("Batch iteration complete, sleeping 0.8s")
+        # print("Batch iteration complete, sleeping 0.8s")
         if not stop_event.is_set():
             time.sleep(0.8)
 
