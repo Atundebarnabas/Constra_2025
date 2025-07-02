@@ -1106,7 +1106,7 @@ def main_job(exchange, user_cred_id, verify):
         signal_map = {row['symbol']: row for row in trade_signals}
         symbols = list(signal_map.keys())
 
-        positionst = exchange.fetch_positions(symbols=symbols)
+        positionst = exchange.fetch_positions(symbols=symbols, params={'type': 'swap'})
         usdt_balances = exchange.fetch_balance({'type': 'swap'}).get('USDT', {})
         buffer_print(f"[{exchange.apiKey[:6]}...] USDT Balance->Free: {usdt_balances.get('free', 0)}")
         buffer_print(f"[{exchange.apiKey[:6]}...] USDT Balance->Total: {usdt_balances.get('total', 0)}")
