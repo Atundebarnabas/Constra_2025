@@ -494,7 +494,7 @@ def update_rentry_count(trade_id, symbol, count):
             conditions={'id': ('=', trade_id), 'symbol': symbol}
         )
         if reset_reentry_count:
-            buffer_print(f"✅✅ Symbol[{symbol}] re-entry count is reset to:: " count)
+            buffer_print(f"✅✅ Symbol[{symbol}] re-entry count is reset to:: ", count)
     except as Exception as e:
         print(f"An error occred wile trying to rese Re-entry--count, Error: ", {e})
 
