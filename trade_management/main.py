@@ -1081,7 +1081,7 @@ def process_single_position(exchange, pos, signal_map, positionst):
         if pos.get('contracts', 0) > 0:
             trailing_stop_logic(exchange, pos, user_id, trade_id, trade_order_id,
             trail_order_id, trail_thresh, trail_profit_distance, 0.10, 0.10, trade_reentry_count)
-            monitor_position_and_reenter(exchange, trade_id, symbol, pos, trade_live_size, trade_reentry_count, dn_allow_rentry, False)
+            monitor_position_and_reenter(exchange, trade_id, symbol, pos, trade_live_size, trade_reentry_count, dn_allow_rentry, True)
         else:
             mark_trade_signal_closed_if_position_closed(exchange, symbol, trade_order_id, trade_id, side, trade_reentry_count, positionst)
         buffer_print(f"--------------🙌 Position processed for {symbol} 🙌---------------")
