@@ -575,15 +575,18 @@ def monitor_position_and_reenter(exchange, trade_id, symbol, position, lv_size, 
         RE_SECOND_STOP = 6
         RE_THIRD_STOP = 8  # typo fixed from "THRID"
 
-        # Determine re-entry size
+        # Determine raw re-entry size based on count
         if re_entry_count < RE_FIRST_STOP:
-            re_entry_size = round(contracts * 2)
+            raw_size = contracts * 2
         elif RE_FIRST_STOP <= re_entry_count < RE_SECOND_STOP:
-            re_entry_size = round(contracts * 1.5)
+            raw_size = contracts * 1.5
         elif RE_SECOND_STOP <= re_entry_count < RE_THIRD_STOP:
-            re_entry_size = round(contracts * 1)
+            raw_size = contracts * 1
         else:
-            re_entry_size = round(contracts / 4)
+            raw_size = contracts / 4
+
+        # Adjust re-entry size according to amount precision
+        re_entry_size = adjust_size_to_precision(raw_size, amount_sig_digits)
 
         if verbose:
             buffer_print(f"[{symbol}] Side: {side}, Entry: {entry_price}, Mark: {mark_price}, "
