@@ -668,7 +668,7 @@ def set_phemex_leverage(exchange, symbol, leverage=None, long_leverage=None, sho
     if side is None:
         print("Side is None, check trade side")
         return
-    
+
     if leverage is not None:
         params['leverageRr'] = str(leverage)  # One-way mode leverage
     
@@ -683,6 +683,13 @@ def set_phemex_leverage(exchange, symbol, leverage=None, long_leverage=None, sho
         print(f"Set leverage response: {response}")
     except Exception as e:
         print(f"⚠️ Could not set leverage: {e}")
+        leverageDef = 3;
+        if leverage is not None:
+            params['leverageRr'] = str(leverageDef)
+        response = exchange.fetch2(path, 'private', method, params)
+        if response:
+            cancel_orphan_orders(exchange, symbol, side, 'limit') 
+        print(f"Set leverage response: {response}")
 
 def trailing_stop_logic(exchange, position, user_id, trade_id, trade_order_id, trail_order_id, trail_theshold, profit_target_distance, breath_stop, breath_threshold):
     symbol = position.get('symbol')
