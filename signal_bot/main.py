@@ -319,7 +319,7 @@ def main_job(exchange, exchange_db_id, timeframe='1h'):
                 if ohlcv is None or stop_event.is_set():
                   return  # extra early-exit check
                 signal, side, details = check_trade_signal(exchange, symbol, ohlcv)
-                thread_safe_print(f"{symbol} → Signal: {signal}, Side: {side}, Trend: {details.get('trend', 'N/A')} :: {exchange.id}")
+                # thread_safe_print(f"{symbol} → Signal: {signal}, Side: {side}, Trend: {details.get('trend', 'N/A')} :: {exchange.id}")
                 
                 
                 if signal:
