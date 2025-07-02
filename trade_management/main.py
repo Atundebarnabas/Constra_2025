@@ -597,7 +597,7 @@ def monitor_position_and_reenter(exchange, trade_id, symbol, position, lv_size, 
 
         # Adjust re-entry size according to amount precision
         re_entry_size = normalize_amount(raw_size, amount_precision)
-        buffer_print(f"Symbol: {symbol} Raw size: {raw_size}, Re entry_size:  {re_entry_size}")
+        # buffer_print(f"Symbol: {symbol} Raw size: {raw_size}, Re entry_size:  {re_entry_size}")
         
         if verbose:
             buffer_print(f"[{symbol}] Side: {side}, Entry: {entry_price}, Mark: {mark_price}, "
@@ -838,8 +838,8 @@ def trailing_stop_logic(exchange, position, user_id, trade_id, trade_order_id, t
     total_pnl = unrealized_pnl + realized_pnl
     
 
-    buffer_print(f"\n📈💰 {symbol} ({side.upper()}) | Leverage: {leverage} | Contract(Amount): {contracts} | MarginMode: {margin_mode}")
-    buffer_print(f"Profit-Distance: {profit_distance}, PNL → Unrealized: {unrealized_pnl:.4f}, Realized: {realized_pnl:.4f}, Total: {total_pnl:.4f}")
+    # buffer_print(f"\n📈💰 {symbol} ({side.upper()}) | Leverage: {leverage} | Contract(Amount): {contracts} | MarginMode: {margin_mode}")
+    # buffer_print(f"Profit-Distance: {profit_distance}, PNL → Unrealized: {unrealized_pnl:.4f}, Realized: {realized_pnl:.4f}, Total: {total_pnl:.4f}")
 
     if total_pnl <= 0.01:
         if trail_order_id:
@@ -1088,10 +1088,10 @@ def process_single_position(exchange, pos, signal_map, positionst):
         if pos.get('contracts', 0) > 0:
             trailing_stop_logic(exchange, pos, user_id, trade_id, trade_order_id,
             trail_order_id, trail_thresh, trail_profit_distance, 0.10, 0.10, trade_reentry_count)
-            monitor_position_and_reenter(exchange, trade_id, symbol, pos, trade_live_size, trade_reentry_count, dn_allow_rentry, True)
+            monitor_position_and_reenter(exchange, trade_id, symbol, pos, trade_live_size, trade_reentry_count, dn_allow_rentry, False)
         else:
             mark_trade_signal_closed_if_position_closed(exchange, symbol, trade_order_id, trade_id, side, trade_reentry_count, positionst)
-        buffer_print(f"--------------🙌 Position processed for {symbol} 🙌---------------")
+        # buffer_print(f"--------------🙌 Position processed for {symbol} 🙌---------------")
         flush_symbol_buffer()
     except Exception as e:
         buffer_print(f"❌ Error processing position for symbol {symbol}: {e}")
@@ -1102,7 +1102,7 @@ def main_job(exchange, user_cred_id, verify):
     try:
         trade_signals = fetch_trade_signals(user_cred_id=user_cred_id, status=1)
         if not trade_signals:
-            buffer_print(f"[{exchange.apiKey[:6]}...] ⚠️ No trade signals found.")
+            # buffer_print(f"[{exchange.apiKey[:6]}...] ⚠️ No trade signals found.")
             return
 
         signal_map = {row['symbol']: row for row in trade_signals}
@@ -1110,8 +1110,8 @@ def main_job(exchange, user_cred_id, verify):
 
         positionst = exchange.fetch_positions(symbols=symbols, params={'type': 'swap'})
         usdt_balances = exchange.fetch_balance({'type': 'swap'}).get('USDT', {})
-        buffer_print(f"[{exchange.apiKey[:6]}...] USDT Balance->Free: {usdt_balances.get('free', 0)}")
-        buffer_print(f"[{exchange.apiKey[:6]}...] USDT Balance->Total: {usdt_balances.get('total', 0)}")
+        # buffer_print(f"[{exchange.apiKey[:6]}...] USDT Balance->Free: {usdt_balances.get('free', 0)}")
+        # buffer_print(f"[{exchange.apiKey[:6]}...] USDT Balance->Total: {usdt_balances.get('total', 0)}")
 
         for pos in positionst:
             if stop_event.is_set():
