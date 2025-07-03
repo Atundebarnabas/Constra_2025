@@ -587,13 +587,16 @@ def monitor_position_and_reenter(exchange, trade_id, symbol, position, lv_size, 
 
         # Determine raw re-entry size based on count
         if re_entry_count <= RE_FIRST_STOP:
-            raw_size = contracts * 1.5
+            raw_size = contracts * 1
         elif RE_FIRST_STOP < re_entry_count <= RE_SECOND_STOP:
-            raw_size = contracts * 1.5
+            raw_size = contracts * 1
         elif RE_SECOND_STOP < re_entry_count <= RE_THIRD_STOP:
-            raw_size = contracts * 1.5
+            raw_size = contracts * 1
         else:
-            raw_size = contracts / 4
+            if re_entry_count >= 16:
+                raw_size = contracts / 4
+            else:
+                raw_size = contracts * 1
 
         # Adjust re-entry size according to amount precision
         re_entry_size = normalize_amount(raw_size, amount_precision)
@@ -849,8 +852,8 @@ def trailing_stop_logic(exchange, position, user_id, trade_id, trade_order_id, t
                     table_name = 'opn_trade',
                     updates = {
                         'trail_order_id': "",
-                        'trail_threshold': trail_theshold,
-                        'profit_target_distance': profit_target_distance,
+                        'trail_threshold': 0.10,
+                        'profit_target_distance': 0.06,
                         'trade_done': 0
                     },
                     conditions = {'id': ('=', trade_id),'symbol': symbol})
@@ -860,8 +863,8 @@ def trailing_stop_logic(exchange, position, user_id, trade_id, trade_order_id, t
                         "token": TOKEN,
                         "table_name": "trade_history",
                         "updates": {
-                            "trail_threshold": trail_theshold,
-                            "profit_target_distance": profit_target_distance,
+                            "trail_threshold": 0.10,
+                            "profit_target_distance": 0.06,
                             "trade_done": 0
                         },
                         "conditions": {
