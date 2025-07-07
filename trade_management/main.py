@@ -993,6 +993,7 @@ def find_matching_symbol(raw_symbol, markets):
     for market_symbol, market in markets.items():
         info_symbol = market['info'].get('symbol', '')
         if info_symbol == raw_symbol:
+            print(f"✅ Matched raw_symbol: '{raw_symbol}' to market_symbol: '{market_symbol}'")
             return market_symbol
     return None
     
