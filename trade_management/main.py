@@ -621,32 +621,37 @@ def monitor_position_and_reenter(exchange, trade_id, symbol, position, lv_size, 
         same_side = 'buy' if side == 'long' else 'sell'
         # Check if any same-side limit order exists with a size different from re_entry_size
         for o in open_orders:
-            if o['type'] == 'limit' and o['side'] == same_side and o['amount'] != re_entry_size:
-                if verbose:
-                    buffer_print(f"[{symbol}] Limit order size {o['amount']} ≠ expected size ({re_entry_size}). Cancelling limit order.")
-                
-                # Cancel the mismatched order
-                cancel_orphan_orders(exchange, symbol, same_side, trade_id, re_entry_count-1, 'limit')
-                
-                # Update DB to allow re-entry again
-                if dn_allow_rentry == 1:
-                    dn_allow_rentry_checkIn = update_row(
-                        table_name='opn_trade',
-                        updates={'dn_allow_rentry': 0},
-                        conditions={'id': ('=', trade_id), 'symbol': symbol}
-                    )
-                    if dn_allow_rentry_checkIn:
-                        buffer_print(f"✅✅ Symbol[{symbol}] re-entry access is unlocked.")
-                
-                return  # Exit after handling one such case
-
-
-        # Check 2: Any same-side limit order exists
-        if any(o['type'] == 'limit' and o['side'] == same_side for o in open_orders):
+            if o['side'] == same_side:
+                is_limit_type = o['type'] == 'limit'
+                is_conditional = 'triggerPrice' in o['info'] or o.get('triggerPrice')  # safer check
+        
+                # Consider both limit and conditional limit orders
+                if (is_limit_type or is_conditional) and o['amount'] != re_entry_size:
+                    if verbose:
+                        buffer_print(f"[{symbol}] Detected same-side conditional/limit order with mismatched size {o['amount']} ≠ expected {re_entry_size}. Cancelling.")
+        
+                    cancel_orphan_orders(exchange, symbol, same_side, trade_id, re_entry_count - 1, 'limit')
+        
+                    if dn_allow_rentry == 1:
+                        dn_allow_rentry_checkIn = update_row(
+                            table_name='opn_trade',
+                            updates={'dn_allow_rentry': 0},
+                            conditions={'id': ('=', trade_id), 'symbol': symbol}
+                        )
+                        if dn_allow_rentry_checkIn:
+                            buffer_print(f"✅✅ Symbol[{symbol}] re-entry access is unlocked.")
+                    return  # Exit after handling one such case
+        
+        # Check if **any** same-side conditional or limit order exists
+        if any(
+            o['side'] == same_side and 
+            ('triggerPrice' in o['info'] or o.get('triggerPrice') or o['type'] == 'limit')
+            for o in open_orders
+        ):
             if verbose:
-                buffer_print(f"[{symbol}] Same-side limit order exists. Skipping re-entry.")
-            # if dn_allow_rentry == 1:
-                # buffer_print(f"⏩ Skipping re-entry for {symbol}, already re-entered.")
+                buffer_print(f"[{symbol}] Same-side limit/conditional order exists. Skipping re-entry.")
+            if dn_allow_rentry == 1:
+                buffer_print(f"⏩ Skipping re-entry for {symbol}, already re-entered.")
             return
 
         # Prepare re-entry order
