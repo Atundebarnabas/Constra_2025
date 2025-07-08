@@ -627,7 +627,7 @@ def monitor_position_and_reenter(exchange, trade_id, symbol, position, lv_size, 
                   f"Liquidation: {liquidation_price}, Closeness: {closeness*100:.1f}%")
 
         # Fetch open orders
-        open_orders = exchange.fetch_open_orders("DOGS/USDT:USDT")
+        open_orders = exchange.fetch_open_orders("DOG/USDT:USDT")
         print(open_orders)
         same_side = 'buy' if side == 'long' else 'sell'
         
