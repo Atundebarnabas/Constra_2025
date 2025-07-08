@@ -435,6 +435,9 @@ def reEnterTrade(exchange, trade_id, symbol, order_side, order_price, order_amou
             amount=order_amount,
             price=order_price,
             params={
+                'triggerPrice': order_price,
+                'triggerType': 'ByMarkPrice',
+                'closeOnTrigger': False,
                 'reduceOnly': False
             }
         )
@@ -468,6 +471,9 @@ def reEnterTrade(exchange, trade_id, symbol, order_side, order_price, order_amou
                     amount=order_amount,
                     price=order_price,
                     params={
+                        'triggerPrice': order_price,
+                        'triggerType': 'ByMarkPrice',
+                        'closeOnTrigger': False,
                         'reduceOnly': False,
                         'posSide': pos_side
                     }
