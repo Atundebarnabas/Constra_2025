@@ -342,7 +342,7 @@ def check_equity_usage(balance):
     total = float(balance.get('total', 0))
     free = float(balance.get('free', 0))
     used = total - free
-    return total > 0 and used >= 0.5 * total
+    return total > 0 and used >= 0.95 * total
 
 # Trading parameters
 leverage = 5
