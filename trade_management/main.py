@@ -628,7 +628,6 @@ def monitor_position_and_reenter(exchange, trade_id, symbol, position, lv_size, 
 
         # Fetch open orders
         open_orders = exchange.fetch_open_orders(symbol)
-        print(open_orders)
         same_side = 'buy' if side == 'long' else 'sell'
         
         # Check if any same-side limit or conditional limit order exists with mismatched size
