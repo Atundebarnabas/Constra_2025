@@ -520,47 +520,40 @@ def cancel_orphan_orders(exchange, symbol, side, trade_id, re_entry_count, order
     :param exchange: The ccxt exchange object
     :param symbol: Symbol string like 'BTCUSDT'
     :param side: 'buy' or 'sell' — from the original trade signal
-    :param trade_id: ID for tracking in DB
-    :param re_entry_count: For logging re-entry count
-    :param order_type: Only 'limit' orders considered (regular or conditional)
+    :param order_type: Default to 'limit' — will also include conditional limit orders (LimitIfTouched)
     """
     try:
         open_orders = exchange.fetch_open_orders(symbol)
-        if symbol == "BID/USDT:USDT":
-            print(open_orders)
         if not open_orders:
             return  # No orders to cancel
 
         for order in open_orders:
             order_side = order['side'].lower()
-            order_type_actual = order['type'].lower()
 
-            # Skip non-limit orders (no stops)
-            if order_type_actual != order_type:
+            # Skip if order type is not limit or conditional limit
+            order_type_lower = order['type'].lower()
+            if order_type_lower not in ['limit', 'limitiftouched']:
                 continue
 
-            # Skip opposite side
+            # Only cancel orders matching the passed-in side (never opposite)
             if order_side != side.lower():
                 continue
 
-            # Identify if it's a conditional limit order (has a non-null triggerPrice)
-            trigger_price = order.get('info', {}).get('triggerPrice')
-            is_conditional = trigger_price not in [None, 0]
+            # Determine if this is a conditional limit order
+            is_conditional = (order_type_lower == 'limitiftouched')
 
-            buffer_print(f"🔎 Order Check - ID: {order['id']} | Side: {order_side.upper()} | Trigger: {trigger_price} | Conditional: {is_conditional}")
+            # For limit orders, cancel only if remaining > 0
+            # For conditional limit orders, cancel regardless of remaining (may be zero if untriggered)
+            if (order_type_lower == 'limit' and order['remaining'] == 0):
+                continue  # skip fully filled/canceled limit orders
 
-            # Cancel all same-side limit orders (regular or conditional)
+            # Proceed to cancel
+            buffer_print(f"❌ Cancelling {order_side.upper()} {order_type_lower.upper()} order for {symbol} (position closed)")
+
             try:
-                if is_conditional:
-                    buffer_print(f"❌ Cancelling CONDITIONAL LIMIT order {order_side.upper()} for {symbol}")
-                    exchange.cancel_order(order['id'], symbol, {'orderType': 'Conditional'})
-                else:
-                    buffer_print(f"❌ Cancelling LIMIT order {order_side.upper()} for {symbol}")
-                    exchange.cancel_order(order['id'], symbol)
-
+                exchange.cancel_order(order['id'], symbol)
                 update_rentry_count(trade_id, symbol, re_entry_count)
                 return True
-
             except Exception as e:
                 if "TE_ERR_INCONSISTENT_POS_MODE" in str(e):
                     pos_side_str = "Long" if order_side == "buy" else "Short"
@@ -573,8 +566,9 @@ def cancel_orphan_orders(exchange, symbol, side, trade_id, re_entry_count, order
 
     except Exception as e:
         buffer_print(f"❌ Global error in cancel_orphan_orders: {e}")
-
+        
     return False
+
 
 
 
