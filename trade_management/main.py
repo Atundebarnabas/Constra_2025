@@ -427,7 +427,7 @@ def reEnterTrade(exchange, trade_id, symbol, order_side, order_price, order_amou
         #     buffer_print(f"⚠️ Insufficient USDT balance ({usdt_balance}) for order cost ({estimated_cost}). Skipping order.")
         #     return
 
-        trigger_direction = 'up' if order_side == 'buy' else 'down'
+        trigger_direction = 'up' if order_side == 'sell' else 'down'
         
         # First attempt: without posSide (works in one-way mode)
         order = exchange.create_order(
