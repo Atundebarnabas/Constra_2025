@@ -532,7 +532,7 @@ def cancel_orphan_orders(exchange, symbol, side, trade_id, re_entry_count, order
 
             # Skip if order type is not limit or conditional limit
             order_type_lower = order['type'].lower()
-            if order_type_lower not in ['limit', 'limitiftouched', 'MarketIfTouched']:
+            if order_type_lower not in ['limit', 'limitiftouched', 'marketiftouched']:
                 continue
 
             # Only cancel orders matching the passed-in side (never opposite)
@@ -540,7 +540,7 @@ def cancel_orphan_orders(exchange, symbol, side, trade_id, re_entry_count, order
                 continue
 
             # Determine if this is a conditional limit order
-            is_conditional = (order_type_lower == 'limitiftouched' or order_type_lower == 'MarketIfTouched')
+            is_conditional = (order_type_lower == 'limitiftouched' or order_type_lower == 'marketiftouched')
 
             # For limit orders, cancel only if remaining > 0
             # For conditional limit orders, cancel regardless of remaining (may be zero if untriggered)
@@ -635,7 +635,7 @@ def monitor_position_and_reenter(exchange, trade_id, symbol, position, lv_size, 
         for o in open_orders:
             if o['side'].lower() == same_side:
                 order_type = o['type'].lower()
-                if order_type in ['limit', 'limitiftouched', 'MarketIfTouched'] and o['amount'] != re_entry_size:
+                if order_type in ['limit', 'limitiftouched', 'marketiftouched'] and o['amount'] != re_entry_size:
                     if verbose:
                         buffer_print(f"[{symbol}] Detected same-side {order_type.upper()} order with mismatched size {o['amount']} ≠ expected {re_entry_size}. Cancelling.")
         
@@ -654,7 +654,7 @@ def monitor_position_and_reenter(exchange, trade_id, symbol, position, lv_size, 
         # Check if any same-side limit or conditional limit order exists
         if any(
             o['side'].lower() == same_side and 
-            o['type'].lower() in ['limit', 'limitiftouched', 'MarketIfTouched']
+            o['type'].lower() in ['limit', 'limitiftouched', 'marketiftouched']
             for o in open_orders
         ):
             if verbose:
@@ -687,7 +687,7 @@ def monitor_position_and_reenter(exchange, trade_id, symbol, position, lv_size, 
             if dn_allow_rentry_checkIn:
                 buffer_print(f"✅✅ Symbol[{symbol}] re-entry access is unlocked.")
 
-        ''' if safe_reEnterTrade(exchange, trade_id, symbol, order_side, trigger_price, re_entry_size, 'market', dn_allow_rentry):
+        if safe_reEnterTrade(exchange, trade_id, symbol, order_side, trigger_price, re_entry_size, 'market', dn_allow_rentry):
             if verbose:
                 buffer_print(f"✅✅✅ Re-entered for {symbol} ✅✅✅")
             rentery_update = update_row(
@@ -696,7 +696,7 @@ def monitor_position_and_reenter(exchange, trade_id, symbol, position, lv_size, 
                     'lv_size': re_entry_size,
                     're_entry_count': re_entry_count+1
                 },
-                conditions = {'id': ('=', trade_id),'symbol': symbol})'''
+                conditions = {'id': ('=', trade_id),'symbol': symbol})
         # Only re-enter if closeness is critical
         if closeness >= 0.8:
             if verbose:
