@@ -540,7 +540,7 @@ def cancel_orphan_orders(exchange, symbol, side, trade_id, re_entry_count, order
                 continue
 
             # Determine if this is a conditional limit order
-            is_conditional = (order_type_lower == 'limitiftouched' || order_type_lower == 'MarketIfTouched')
+            is_conditional = (order_type_lower == 'limitiftouched' or order_type_lower == 'MarketIfTouched')
 
             # For limit orders, cancel only if remaining > 0
             # For conditional limit orders, cancel regardless of remaining (may be zero if untriggered)
