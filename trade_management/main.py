@@ -626,28 +626,21 @@ def monitor_position_and_reenter(exchange, trade_id, symbol, position, lv_size, 
             buffer_print(f"[{symbol}] Side: {side}, Entry: {entry_price}, Mark: {mark_price}, "
                   f"Liquidation: {liquidation_price}, Closeness: {closeness*100:.1f}%")
 
-        # Fetch all orders, including conditional (trigger-based)
-        open_orders = exchange.fetch_orders(symbol)
-
-        # Filter only OPEN orders
-        open_orders = [o for o in open_orders if o['status'] == 'open']
+        # Fetch open orders
+        open_orders = exchange.fetch_open_orders("DOGS/USDT:USDT")
         print(open_orders)
-
-        # Determine the current trade direction
         same_side = 'buy' if side == 'long' else 'sell'
-
-        # Check 1: Look for same-side LIMIT or CONDITIONAL order with mismatched size
+        
+        # Check if any same-side limit or conditional limit order exists with mismatched size
         for o in open_orders:
             if o['side'].lower() == same_side:
                 order_type = o['type'].lower()
-                if order_type in ['limit', 'limitiftouched', 'marketiftouched'] and o['amount'] != re_entry_size:
+                if order_type in ['limit', 'limitiftouched', 'MarketIfTouched'] and o['amount'] != re_entry_size:
                     if verbose:
                         buffer_print(f"[{symbol}] Detected same-side {order_type.upper()} order with mismatched size {o['amount']} ≠ expected {re_entry_size}. Cancelling.")
-                    
-                    # Cancel mismatched same-side limit or trigger order
+        
                     cancel_orphan_orders(exchange, symbol, same_side, trade_id, re_entry_count - 1, 'limit')
-                    
-                    # Unlock re-entry
+        
                     if dn_allow_rentry == 1:
                         dn_allow_rentry_checkIn = update_row(
                             table_name='opn_trade',
@@ -656,20 +649,21 @@ def monitor_position_and_reenter(exchange, trade_id, symbol, position, lv_size, 
                         )
                         if dn_allow_rentry_checkIn:
                             buffer_print(f"✅✅ Symbol[{symbol}] re-entry access is unlocked.")
-                    return  # Exit after resolving mismatch
-
-        # Check 2: If any same-side LIMIT or CONDITIONAL LIMIT/MARKET order exists
+                    return  # Exit after handling one such case
+        
+        # Check if any same-side limit or conditional limit order exists
         if any(
             o['side'].lower() == same_side and 
-            o['type'].lower() in ['limit', 'limitiftouched', 'marketiftouched']
+            o['type'].lower() in ['limit', 'limitiftouched', 'MarketIfTouched']
             for o in open_orders
         ):
             if verbose:
-                buffer_print(f"[{symbol}] Same-side limit or conditional limit/market order exists. Skipping re-entry.")
+                buffer_print(f"[{symbol}] Same-side limit or conditional limit order exists. Skipping re-entry.")
             if dn_allow_rentry == 1:
-                pass  # Could log if needed
+                # buffer_print(f"⏩ Skipping re-entry for {symbol}, already re-entered.")
+                pass
             return
-
+            
         # Prepare re-entry order
         order_side = 'sell' if side == 'short' else 'buy'
         trigger_price = calculateLiquidationTargPrice(entry_price, liquidation_price, 0.2, price_sig_digits)
