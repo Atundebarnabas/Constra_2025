@@ -686,7 +686,7 @@ def monitor_position_and_reenter(exchange, trade_id, symbol, position, lv_size, 
             if dn_allow_rentry_checkIn:
                 buffer_print(f"✅✅ Symbol[{symbol}] re-entry access is unlocked.")
 
-        if safe_reEnterTrade(exchange, trade_id, symbol, order_side, trigger_price, re_entry_size, 'market', dn_allow_rentry):
+        ''' if safe_reEnterTrade(exchange, trade_id, symbol, order_side, trigger_price, re_entry_size, 'market', dn_allow_rentry):
             if verbose:
                 buffer_print(f"✅✅✅ Re-entered for {symbol} ✅✅✅")
             rentery_update = update_row(
@@ -695,7 +695,7 @@ def monitor_position_and_reenter(exchange, trade_id, symbol, position, lv_size, 
                     'lv_size': re_entry_size,
                     're_entry_count': re_entry_count+1
                 },
-                conditions = {'id': ('=', trade_id),'symbol': symbol})
+                conditions = {'id': ('=', trade_id),'symbol': symbol})'''
         # Only re-enter if closeness is critical
         if closeness >= 0.8:
             if verbose:
