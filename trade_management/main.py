@@ -737,7 +737,7 @@ def cancel_existing_stop_order(exchange, symbol, order_id, side):
 def create_stop_order(exchange, symbol, side, contracts, new_stop_price):
     params_common = {
         'stopPx': new_stop_price,
-        'triggerType': 'ByLastPrice',
+        'triggerType': 'ByMarkPrice',
         'triggerDirection': 1 if side == 'long' else 2,
         'reduceOnly': True,
         'closeOnTrigger': True,
