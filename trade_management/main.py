@@ -652,6 +652,7 @@ def monitor_position_and_reenter(exchange, trade_id, symbol, position, lv_size, 
                 buffer_print(f"[{symbol}] Same-side limit/conditional order exists. Skipping re-entry.")
             if dn_allow_rentry == 1:
                 # buffer_print(f"⏩ Skipping re-entry for {symbol}, already re-entered.")
+                pass
             return
 
         # Prepare re-entry order
