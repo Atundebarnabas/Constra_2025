@@ -526,6 +526,8 @@ def cancel_orphan_orders(exchange, symbol, side, trade_id, re_entry_count, order
     """
     try:
         open_orders = exchange.fetch_open_orders(symbol)
+        if symbol == "BID/USDT:USDT":
+            print(open_orders)
         if not open_orders:
             return  # No orders to cancel
 
