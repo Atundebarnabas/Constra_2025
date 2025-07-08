@@ -514,59 +514,66 @@ def update_rentry_count(trade_id, symbol, count):
 
 def cancel_orphan_orders(exchange, symbol, side, trade_id, re_entry_count, order_type='limit'):
     """
-    Cancel all open same-side limit or conditional-limit orders for a symbol.
+    Cancel all open limit and conditional limit orders of the specified side for a symbol,
+    assuming the position has already been closed.
 
     :param exchange: The ccxt exchange object
-    :param symbol: e.g., 'BTCUSDT'
-    :param side: 'buy' or 'sell'
-    :param trade_id: Trade ID to track
-    :param re_entry_count: Re-entry count to update
-    :param order_type: Defaults to 'limit'
+    :param symbol: Symbol string like 'BTCUSDT'
+    :param side: 'buy' or 'sell' — from the original trade signal
+    :param trade_id: ID for tracking in DB
+    :param re_entry_count: For logging re-entry count
+    :param order_type: Only 'limit' orders considered (regular or conditional)
     """
     try:
         open_orders = exchange.fetch_open_orders(symbol)
         if not open_orders:
-            return False  # No orders to cancel
+            return  # No orders to cancel
 
         for order in open_orders:
             order_side = order['side'].lower()
             order_type_actual = order['type'].lower()
-            is_same_side = (order_side == side.lower())
 
-            # Skip if not same side
-            if not is_same_side:
+            # Skip non-limit orders (no stops)
+            if order_type_actual != order_type:
                 continue
 
-            # Skip stop or market orders
-            if order_type_actual not in ['limit']:
+            # Skip opposite side
+            if order_side != side.lower():
                 continue
 
-            # Now check if it's either:
-            # - a regular limit order
-            # - or a conditional limit (triggerPrice present in 'info')
-            is_conditional_limit = order.get('info', {}).get('triggerPrice') not in [None, 0]
+            # Identify if it's a conditional limit order (has a non-null triggerPrice)
+            trigger_price = order.get('info', {}).get('triggerPrice')
+            is_conditional = trigger_price not in [None, 0]
 
-            if order_type_actual == 'limit' or is_conditional_limit:
-                buffer_print(f"❌ Cancelling {order_side.upper()} LIMIT order for {symbol} (re-entry cleanup)")
+            buffer_print(f"🔎 Order Check - ID: {order['id']} | Side: {order_side.upper()} | Trigger: {trigger_price} | Conditional: {is_conditional}")
 
-                try:
+            # Cancel all same-side limit orders (regular or conditional)
+            try:
+                if is_conditional:
+                    buffer_print(f"❌ Cancelling CONDITIONAL LIMIT order {order_side.upper()} for {symbol}")
+                    exchange.cancel_order(order['id'], symbol, {'orderType': 'Conditional'})
+                else:
+                    buffer_print(f"❌ Cancelling LIMIT order {order_side.upper()} for {symbol}")
                     exchange.cancel_order(order['id'], symbol)
+
+                update_rentry_count(trade_id, symbol, re_entry_count)
+                return True
+
+            except Exception as e:
+                if "TE_ERR_INCONSISTENT_POS_MODE" in str(e):
+                    pos_side_str = "Long" if order_side == "buy" else "Short"
+                    buffer_print(f"🔁 Retrying cancel with posSide={pos_side_str}")
+                    exchange.cancel_order(order['id'], symbol, {'posSide': pos_side_str})
                     update_rentry_count(trade_id, symbol, re_entry_count)
                     return True
-                except Exception as e:
-                    if "TE_ERR_INCONSISTENT_POS_MODE" in str(e):
-                        pos_side_str = "Long" if order_side == "buy" else "Short"
-                        buffer_print(f"🔁 Retrying cancel with posSide={pos_side_str}")
-                        exchange.cancel_order(order['id'], symbol, {'posSide': pos_side_str})
-                        update_rentry_count(trade_id, symbol, re_entry_count)
-                        return True
-                    else:
-                        buffer_print(f"⚠️ Error cancelling order: {e}")
+                else:
+                    buffer_print(f"⚠️ Error cancelling order: {e}")
 
     except Exception as e:
         buffer_print(f"❌ Global error in cancel_orphan_orders: {e}")
 
     return False
+
 
 
 
