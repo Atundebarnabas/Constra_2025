@@ -613,7 +613,7 @@ def monitor_position_and_reenter(exchange, trade_id, symbol, position, lv_size, 
         elif RE_SECOND_STOP < re_entry_count <= RE_THIRD_STOP:
             raw_size = contracts * 1
         else:
-            if re_entry_count >= 16:
+            if re_entry_count >= 10:
                 raw_size = contracts / 4
             else:
                 raw_size = contracts * 1
